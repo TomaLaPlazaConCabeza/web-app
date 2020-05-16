@@ -50,6 +50,7 @@ import flask
 from .algorithm import (
     calculate,
     convert_wgs84_to_meter_system,
+    correct_line_intersection,
     metered_points_to_geojson,
     polygon_from_geosjon_feature,
 )
@@ -67,10 +68,16 @@ def calculate_endpoint():
 
     :return:
     """
-    body = flask.request.get_json()  # TODO this may fail if request body is empty
+    try:
+        body = flask.request.get_json()
+    except (TypeError, ValueError):
+        flask.abort(400, "Request payload was not proper JSON.")
+
+    if body is None:
+        flask.abort(400, "Request body was not proper JSON")
 
     if "features" not in body:
-        flask.abort(400)
+        flask.abort(400, "There is no 'features' element inside the request payload.")
 
     all_polygons = [
         item
@@ -80,18 +87,24 @@ def calculate_endpoint():
 
     if not all_polygons:
         points = []
+        n_humans = 0
     else:
-        polygon = polygon_from_geosjon_feature(
-            all_polygons[0]
-        )  # FIXME: only taking first one for now
+        # FIXME: only taking first one for now
+        try:
+            polygon = polygon_from_geosjon_feature(all_polygons[0])
+        except ValueError:
+            flask.abort(400, "Polygon contains too little items to compute.")
         coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
-        _, raw_points = calculate(metered_polygon)
+        # fix for weird self-intersections
+        n_humans, raw_points = calculate(
+            correct_line_intersection(metered_polygon.exterior.coords)
+        )
         points = metered_points_to_geojson(raw_points, coord_system)
 
     return flask.jsonify(
         {
             "type": "FeatureCollection",
             "features": points,
-            "properties": {"n_humans": len(points)},
+            "properties": {"n_humans": n_humans},
         }
     )

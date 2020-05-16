@@ -5,7 +5,8 @@ import numpy as np
 import pyproj
 import shapely.ops
 from descartes import PolygonPatch
-from shapely.geometry import Point, Polygon
+from shapely.coords import CoordinateSequence
+from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry import mapping as geojson_mapping
 
 BLUE = "#6699cc"
@@ -130,6 +131,31 @@ def plot_coords(ax, ob, color=GRAY):
         ax.scatter(coords[0], coords[1], color=color)
 
 
+def correct_line_intersection(coords: CoordinateSequence) -> Polygon:
+    """Function that converts a list of 2D cartesian coordinates
+    (importable into Shapely) into a closed Polygon.
+
+     Coordinates are assumed to be in meters.
+     It accounts for lines that potentially intersects.
+    """
+    # Generate LineString obj from coordinates
+    polyline = LineString(coords)
+
+    # Create tiny buffer region around polyline
+    polyline_buffer = polyline.buffer(0.1)
+
+    # Create bounding box of polyline_buffer
+    bbox = box(*polyline_buffer.bounds)
+
+    # Obtain a list of unconnected polygons by difference of bbox and polyline_buffer
+    list_polygons = bbox.difference(polyline_buffer)
+
+    # Valid polygon is the one with max area
+    polygon = max(list_polygons, key=lambda a: a.area)
+
+    return polygon
+
+
 def generate_random(polygon: Polygon) -> Point:
     """Generate a random point inside a polygon."""
     # Get cartesian boundaries of polygon
@@ -161,8 +187,8 @@ def populate_square(
     for i in range(iters):
         #  Generate random point inside ob
         pts_temp = np.asarray(generate_random(ob))
-        # Calculate cartesian difference between pts_temp and all existing points in pts
-        # array
+        # Calculate cartesian difference
+        #  between pts_temp and all existing points in pts array
         pts_diff = pts[:accept] - pts_temp
         # Perform overlap boolean check with all existing points in pts array
         euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
