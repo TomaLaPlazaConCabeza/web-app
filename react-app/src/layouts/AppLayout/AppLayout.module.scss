@@ -1,0 +1,23 @@
+.wrapper {
+  height: 100vh;
+  max-height: 100vh;
+  display: -webkit-flex;
+  display: -ms-flex;
+  display: flex;
+  flex-direction: column;
+
+  .content {
+    flex: 1 1 100%;
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 10px;
+    padding-top: 15px;
+    overflow: auto;
+
+    > div {
+      flex: 1;
+    }
+  }
+}
