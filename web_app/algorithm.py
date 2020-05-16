@@ -185,13 +185,8 @@ def populate_square(
     for i in range(iters):
         #  Generate random point inside ob
         pts_temp = np.asarray(generate_random(ob))
-<<<<<<< HEAD
         # Calculate cartesian difference
         #  between pts_temp and all existing points in pts array
-=======
-        # Calculate cartesian difference between pts_temp and all existing points in pts
-        # array
->>>>>>> master
         pts_diff = pts[:accept] - pts_temp
         # Perform overlap boolean check with all existing points in pts array
         euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
