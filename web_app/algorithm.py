@@ -14,28 +14,28 @@ GREEN = "#32CD32"
 
 # all mappings are FROM WGS84, epsg:4326
 # all mappings are to coordinate systems measured in meters.
-global_proj = pyproj.Proj(init="epsg:4326")
+global_proj = pyproj.Proj("epsg:4326")
 TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
     "epsg:3035": pyproj.Transformer.from_proj(
-        global_proj, pyproj.Proj(init="epsg:3035")
+        global_proj, pyproj.Proj("epsg:3035")
     ),  # most of europe
     "epsg:5634": pyproj.Transformer.from_proj(
-        global_proj, pyproj.Proj(init="epsg:5634")
+        global_proj, pyproj.Proj("epsg:5634")
     ),  # canaries
     "epsg:6269": pyproj.Transformer.from_proj(
-        global_proj, pyproj.Proj(init="epsg:8826")
+        global_proj, pyproj.Proj("epsg:8826")
     ),  # contiguous usa and canada
 }
 
 REVERSE_TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
     "epsg:3035": pyproj.Transformer.from_proj(
-        pyproj.Proj(init="epsg:3035"), global_proj
+        pyproj.Proj("epsg:3035"), global_proj
     ),  # most of europe
     "epsg:5634": pyproj.Transformer.from_proj(
-        pyproj.Proj(init="epsg:5634"), global_proj
+        pyproj.Proj("epsg:5634"), global_proj
     ),  # canaries
     "epsg:6269": pyproj.Transformer.from_proj(
-        pyproj.Proj(init="epsg:8826"), global_proj
+        pyproj.Proj("epsg:8826"), global_proj
     ),  # contiguous usa and canada
 }
 # BOUNDING BOXES IN WGS84
@@ -44,7 +44,7 @@ BOUNDING_BOX_MAP = {
         [(-16.1, 32.88), (-16.1, 84.17), (40.18, 84.17), (40.18, 32.88)]
     ),
     "epsg:5634": Polygon(
-        [(-21.73, 24.6), (-21.73, 32.76), (-11.75, -32.76), (-11.75, 24.6)]
+        [(-21.73, 24.6), (-21.73, 32.76), (-11.75, 32.76), (-11.75, 24.6)]
     ),
 }
 
@@ -76,13 +76,13 @@ def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
     if polygon.within(BOUNDING_BOX_MAP["epsg:5634"]):
         return (
             "epsg:5634",
-            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:5634"], polygon),
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:5634"].transform, polygon),
         )
     # then europe as whole
     if polygon.within(BOUNDING_BOX_MAP["epsg:3035"]):
         return (
             "epsg:3035",
-            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"], polygon),
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"].transform, polygon),
         )
 
     raise ValueError("Could not convert to a meter-based coordinate system")
