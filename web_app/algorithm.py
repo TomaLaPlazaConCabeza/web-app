@@ -68,7 +68,7 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
             # If all checks are positive, add point
             pts[accept, :] = pts_temp
             accept += 1
-
+        # Print progress
         if (i % int(iters / 10)) == 0:
             print(f"Attempt: {i+1} Accepted: {accept-1}")
 
@@ -85,11 +85,16 @@ def calculate(
     :param buffer_zone_size: size of buffer zone in meters.
     :return: n_points, coordinates
     """
+    # If buffer zone is activated, generate buffer zone and substract it
+    #  to initial polygon
     if buffer_zone_size is not None:
         boundary = polygon.boundary.buffer(5)
         polygon = polygon.difference(boundary)
 
+    # Random insertion of disks in polygon -- returns disks' centers coordinates
     disk_centers = populate_square(polygon, iters=30000, r=social_distance)
+
+    # Convert to disk polygons
     disks = [Point(i[0], i[1]).buffer(social_distance) for i in disk_centers]
 
     return len(disks), disks
@@ -98,13 +103,17 @@ def calculate(
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
+    # Generate polygon
     pts_ext = [(0, 0), (0, 50), (50, 50), (50, 0), (0, 0)]
     pts_int = [(25, 0), (12.5, 12.5), (25, 25), (37.5, 12.5), (25, 0)][::-1]
     polygon = Polygon(pts_ext, [pts_int])
 
+    # Random insertion of disks in polygon -- returns disks' centers coordinates
     disk_centers = populate_square(polygon, iters=30000)
+    # Convert to disk polygons
     disks = [Point(i[0], i[1]).buffer(1) for i in disk_centers]
 
+    # Plotting
     fig = plt.figure(1, figsize=(10, 4), dpi=180)
     ax = fig.add_subplot(121, aspect="equal")
 
@@ -119,11 +128,16 @@ if __name__ == "__main__":
         patch = PolygonPatch(disk, facecolor=RED, edgecolor=GRAY, alpha=0.5, zorder=2)
         ax.add_patch(patch)
 
+    # Generate polygon boundary
     boundary = polygon.boundary.buffer(5)
 
+    # Random insertion of disks in polygon with boundary zone substracted
+    #  -- returns disks' centers coordinates
     disk_centers = populate_square(polygon.difference(boundary), iters=30000)
+    # Convert to disk polygons
     disks = [Point(i[0], i[1]).buffer(1) for i in disk_centers]
 
+    # Plotting
     fig = plt.figure(1, figsize=(10, 4), dpi=180)
     ax = fig.add_subplot(122, aspect="equal")
 
