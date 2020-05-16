@@ -3,11 +3,7 @@ import numpy as np
 import random
 from tqdm import tqdm
 
-from shapely.geometry import LineString, Polygon, Point
-from shapely.geometry.polygon import LinearRing
-from shapely.affinity import affine_transform
-from shapely.ops import triangulate
-
+from shapely.geometry import Polygon, Point
 from descartes import PolygonPatch
 
 BLUE = "#6699cc"
