@@ -1,5 +1,6 @@
-matplotlib>=3.2.1,
+matplotlib>=3.2.1
 black>=19.10b0
 flake8>=3.8.1
 isort>=4.3.21
+tqdm>=4.46.0
 pre-commit>=2.4.0

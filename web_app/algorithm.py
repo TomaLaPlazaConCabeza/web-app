@@ -1,0 +1,269 @@
+import random
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pyproj
+import shapely.ops
+from descartes import PolygonPatch
+from shapely.geometry import Point, Polygon
+from shapely.geometry import mapping as geojson_mapping
+
+BLUE = "#6699cc"
+GRAY = "#999999"
+RED = "#8B0000"
+GREEN = "#32CD32"
+
+# all mappings are FROM WGS84, epsg:4326
+# all mappings are to coordinate systems measured in meters.
+global_proj = pyproj.Proj("epsg:4326")
+TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
+    "epsg:3035": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj("epsg:3035")
+    ),  # most of europe
+    "epsg:5634": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj("epsg:5634")
+    ),  # canaries
+    "epsg:6269": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj("epsg:8826")
+    ),  # contiguous usa and canada
+}
+
+REVERSE_TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
+    "epsg:3035": pyproj.Transformer.from_proj(
+        pyproj.Proj("epsg:3035"), global_proj
+    ),  # most of europe
+    "epsg:5634": pyproj.Transformer.from_proj(
+        pyproj.Proj("epsg:5634"), global_proj
+    ),  # canaries
+    "epsg:6269": pyproj.Transformer.from_proj(
+        pyproj.Proj("epsg:8826"), global_proj
+    ),  # contiguous usa and canada
+}
+# BOUNDING BOXES IN WGS84
+BOUNDING_BOX_MAP = {
+    "epsg:3035": Polygon(
+        [(-16.1, 32.88), (-16.1, 84.17), (40.18, 84.17), (40.18, 32.88)]
+    ),
+    "epsg:5634": Polygon(
+        [(-21.73, 24.6), (-21.73, 32.76), (-11.75, 32.76), (-11.75, 24.6)]
+    ),
+}
+
+
+def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
+    """Construct a polygon from a geojson feature
+
+    :param feature: feature
+    :return: Polygon
+    """
+    coordinates = feature.get("geometry", {}).get("coordinates", [])
+    if not coordinates:
+        raise ValueError("No coordinates supplied")
+    # geojson nests stuff even more.
+    if len(coordinates[0]) < 3:
+        raise ValueError("Cannot construct a polygon with less than 3 tuples.")
+    return Polygon(coordinates[0])
+
+
+def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
+    """Convert a polygon in WGS84 to a polygon in a meter-based
+        coordinate system.
+
+    :param polygon: the polygon to be converted
+
+    :return: name of coordinate system used, another polygon.
+    """
+    # first check canaries
+    if polygon.within(BOUNDING_BOX_MAP["epsg:5634"]):
+        return (
+            "epsg:5634",
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:5634"].transform, polygon),
+        )
+    # then europe as whole
+    if polygon.within(BOUNDING_BOX_MAP["epsg:3035"]):
+        return (
+            "epsg:3035",
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"].transform, polygon),
+        )
+
+    raise ValueError("Could not convert to a meter-based coordinate system")
+
+
+def metered_points_to_geojson(
+    points: List[Point], coordinate_system: str
+) -> List[Dict[str, Any]]:
+    """List of metered points to geojson object
+
+    :param points: list of points
+    :param coordinate_system: coordinate system
+    :return: geojson in WGS84.
+    """
+    return [
+        {
+            "type": "Feature",
+            "geometry": geojson_mapping(
+                shapely.ops.transform(
+                    REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, point
+                )
+            ),
+        }
+        for point in points
+    ]
+
+
+def plot_line(ax, ob, color=BLUE):
+    """Function to plot Shapely line object"""
+    # Get objects x and y boundary as line
+    x, y = ob.xy
+    ax.plot(x, y, color=color, linewidth=3, solid_capstyle="round", zorder=1, alpha=0.5)
+
+
+def plot_coords(ax, ob, color=GRAY):
+    """Function to plot Shapely object coordinates"""
+    # Get Shapely object point coords (e.g. polygon vertexes)
+    coords = np.asarray(ob)
+    #  If multiple points, scatter plot
+    if coords.size > 2:
+        ax.scatter(coords[:, 0], coords[:, 1], color=color)
+    # If single, point plot
+    else:
+        ax.scatter(coords[0], coords[1], color=color)
+
+
+def generate_random(polygon: Polygon) -> Point:
+    """Generate a random point inside a polygon."""
+    # Get cartesian boundaries of polygon
+    minx, miny, maxx, maxy = polygon.bounds
+    # Create a random point inside a square defined by the cartesian boundaries
+    pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
+    # Check for point being inside polygon. If not, generate another random point
+    while not polygon.contains(pnt):
+        pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
+    return pnt
+
+
+def populate_square(
+    ob: Polygon, iters: int = 1000, r: float = 1.0, debug: bool = False
+) -> np.ndarray:
+    """Function to populate a polygon "ob" with disks of radius "r".
+    It performs "iters" attemps of disk insertion.
+    It returns an array of the coordinates of the inserted disk centers.
+
+    :returns: numpy nx2-array of floats.
+    """
+    # Define array of points
+    pts = np.zeros(shape=(iters, 2))
+    # Initialize first point -- always accepted as it's the first!
+    pts[0, :] = np.asarray(generate_random(ob))
+    accept = 1
+    # Do n=iters disk insert attempt
+    # TODO: numba, and pre-compute generate_random
+    for i in range(iters):
+        #  Generate random point inside ob
+        pts_temp = np.asarray(generate_random(ob))
+        # Calculate cartesian difference between pts_temp and all existing points in pts
+        # array
+        pts_diff = pts[:accept] - pts_temp
+        # Perform overlap boolean check with all existing points in pts array
+        euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
+        # Check that pts_temp doesn't overlap with any other
+        if np.all(euclid_bool):
+            # If all checks are positive, add point
+            pts[accept, :] = pts_temp
+            accept += 1
+        # Print progress
+        if debug and (i % int(iters / 10)) == 0:
+            print(f"Attempt: {i+1} Accepted: {accept-1}")
+
+    return pts[:accept, :]
+
+
+def calculate(
+    polygon: Polygon,
+    n_iters: int = 5000,
+    social_distance: float = 1.5,
+    buffer_zone_size: Optional[float] = None,
+) -> Tuple[int, List[Point]]:
+    """Do the math
+
+    :param polygon: Polygon with coordinates in meters.
+    :param social_distance: social distance in meters
+    :param buffer_zone_size: size of buffer zone in meters.
+    :return: n_points, coordinates
+    """
+    # If buffer zone is activated, generate buffer zone and substract it
+    #  to initial polygon
+    if buffer_zone_size is not None:
+        boundary = polygon.boundary.buffer(5)
+        polygon = polygon.difference(boundary)
+
+    # Random insertion of disks in polygon -- returns disks' centers coordinates
+    # FIXME: guesstimate number of iters based on polygon area.
+    disk_centers = populate_square(polygon, iters=n_iters, r=social_distance)
+
+    # Convert to disk polygons
+    disks = [Point(i[0], i[1]) for i in disk_centers]
+
+    return len(disks), disks
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    # Generate polygon
+    pts_ext = [(0, 0), (0, 50), (50, 50), (50, 0), (0, 0)]
+    pts_int = [(25, 0), (12.5, 12.5), (25, 25), (37.5, 12.5), (25, 0)][::-1]
+    polygon = Polygon(pts_ext, [pts_int])
+
+    # Random insertion of disks in polygon -- returns disks' centers coordinates
+    disk_centers = populate_square(polygon, iters=30000)
+    # Convert to disk polygons
+    disks = [Point(i[0], i[1]).buffer(1) for i in disk_centers]
+
+    # Plotting
+    fig = plt.figure(1, figsize=(10, 4), dpi=180)
+    ax = fig.add_subplot(121, aspect="equal")
+
+    plot_coords(ax, polygon.interiors[0])
+    plot_coords(ax, polygon.exterior)
+    patch = PolygonPatch(polygon, facecolor=BLUE, edgecolor=GRAY, alpha=0.5, zorder=2)
+    ax.add_patch(patch)
+    ax.set_title("No boundary")
+
+    for i, disk in enumerate(disks):
+        # plot_coords(ax, disk_centers[i])
+        patch = PolygonPatch(disk, facecolor=RED, edgecolor=GRAY, alpha=0.5, zorder=2)
+        ax.add_patch(patch)
+
+    # Generate polygon boundary
+    boundary = polygon.boundary.buffer(5)
+
+    # Random insertion of disks in polygon with boundary zone substracted
+    #  -- returns disks' centers coordinates
+    disk_centers = populate_square(polygon.difference(boundary), iters=30000)
+    # Convert to disk polygons
+    disks = [Point(i[0], i[1]).buffer(1) for i in disk_centers]
+
+    # Plotting
+    fig = plt.figure(1, figsize=(10, 4), dpi=180)
+    ax = fig.add_subplot(122, aspect="equal")
+
+    plot_coords(ax, polygon.interiors[0])
+    plot_coords(ax, polygon.exterior)
+    patch = PolygonPatch(polygon, facecolor=BLUE, edgecolor=GRAY, alpha=0.5, zorder=2)
+    ax.add_patch(patch)
+    patch_b = PolygonPatch(
+        boundary.intersection(polygon),
+        facecolor=GREEN,
+        edgecolor=GRAY,
+        alpha=0.5,
+        zorder=2,
+    )
+    ax.add_patch(patch_b)
+
+    for i, disk in enumerate(disks):
+        # plot_coords(ax, disk_centers[i])
+        patch = PolygonPatch(disk, facecolor=RED, edgecolor=GRAY, alpha=0.5, zorder=2)
+        ax.add_patch(patch)
+    ax.set_title("With Boundary")
+    plt.show()
