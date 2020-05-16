@@ -152,10 +152,10 @@ def run(**args):
 if __name__ == '__main__':
 
     params = {
-        'natoms': 50,
+        'natoms': 70,
         'temp': 300,
         'mass': 1e1,
-        'radius': 20e-9,
+        'radius': 25e-9,
         'visc': 8.9e-4,
         'dt': 1e-11,
         'steps': 1000,
