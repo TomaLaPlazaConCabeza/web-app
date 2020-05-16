@@ -1,0 +1,11 @@
+.wrapper {
+  height: 100vh;
+  display: -webkit-flex;
+  display: -ms-flex;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  flex: 1 1 100%;
+}
