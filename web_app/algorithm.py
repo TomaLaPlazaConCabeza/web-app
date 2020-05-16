@@ -21,9 +21,30 @@ TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
     "epsg:5634": pyproj.Transformer.from_proj(
         global_proj, pyproj.Proj(init="epsg:5634")
     ),  # canaries
-    "epsg:8826": pyproj.Transformer.from_proj(
+    "epsg:6269": pyproj.Transformer.from_proj(
         global_proj, pyproj.Proj(init="epsg:8826")
     ),  # contiguous usa and canada
+}
+
+REVERSE_TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
+    "epsg:3035": pyproj.Transformer.from_proj(
+        pyproj.Proj(init="epsg:3035"), global_proj
+    ),  # most of europe
+    "epsg:5634": pyproj.Transformer.from_proj(
+        pyproj.Proj(init="epsg:5634"), global_proj
+    ),  # canaries
+    "epsg:6269": pyproj.Transformer.from_proj(
+        pyproj.Proj(init="epsg:8826"), global_proj
+    ),  # contiguous usa and canada
+}
+# BOUNDING BOXES IN WGS84
+BOUNDING_BOX_MAP = {
+    "epsg:3035": Polygon(
+        [(-16.1, 32.88), (-16.1, 84.17), (40.18, 84.17), (40.18, 32.88)]
+    ),
+    "epsg:5634": Polygon(
+        [(-21.73, 24.6), (-21.73, 32.76), (-11.75, -32.76), (-11.75, 24.6)]
+    ),
 }
 
 
