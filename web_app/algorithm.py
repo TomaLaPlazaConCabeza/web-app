@@ -1,10 +1,10 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import random
-from tqdm import tqdm
+from typing import List, Optional, Tuple
 
-from shapely.geometry import Polygon, Point
+import numpy as np
 from descartes import PolygonPatch
+from shapely.geometry import Point, Polygon
+from tqdm import tqdm
 
 BLUE = "#6699cc"
 GRAY = "#999999"
@@ -27,7 +27,7 @@ def plot_coords(ax, ob, color=GRAY):
         ax.scatter(coords[0], coords[1], color=color)
 
 
-def generate_random(polygon):
+def generate_random(polygon: Polygon) -> Point:
     """Generate a random point inside a polygon."""
     minx, miny, maxx, maxy = polygon.bounds
     pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
@@ -36,10 +36,12 @@ def generate_random(polygon):
     return pnt
 
 
-def populate_square(ob, iters=1000, r=1):
+def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarray:
     """Function to populate a polygon "ob" with disks of radius "r".
     It performs "iters" attemps of disk insertion.
     It returns an array of the coordinates of the inserted disk centers.
+
+    :returns: numpy nx2-array of floats.
     """
     pts = np.zeros(shape=(iters, 2))
     accept = 0
@@ -59,7 +61,29 @@ def populate_square(ob, iters=1000, r=1):
     return pts[:accept, :]
 
 
-def main():
+def calculate(
+    polygon: Polygon, social_distance: float, buffer_zone_size: Optional[float] = None
+) -> Tuple[int, List[Point]]:
+    """Do the math
+
+    :param polygon: Polygon with coordinates in meters.
+    :param social_distance: social distance in meters
+    :param buffer_zone_size: size of buffer zone in meters.
+    :return: n_points, coordinates
+    """
+    if buffer_zone_size is not None:
+        boundary = polygon.boundary.buffer(5)
+        polygon = polygon.difference(boundary)
+
+    disk_centers = populate_square(polygon, iters=30000, r=social_distance)
+    disks = [Point(i[0], i[1]).buffer(social_distance) for i in disk_centers]
+
+    return len(disks), disks
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     pts_ext = [(0, 0), (0, 50), (50, 50), (50, 0), (0, 0)]
     pts_int = [(25, 0), (12.5, 12.5), (25, 25), (37.5, 12.5), (25, 0)][::-1]
     polygon = Polygon(pts_ext, [pts_int])
@@ -108,7 +132,3 @@ def main():
         ax.add_patch(patch)
     ax.set_title("With Boundary")
     plt.show()
-
-
-if __name__ == "__main__":
-    main()
