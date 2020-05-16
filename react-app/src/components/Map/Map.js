@@ -288,7 +288,7 @@ class Map extends Component {
             </Tooltip>
 
             <Tooltip title='Calculate'>
-              <Button color="primary" onClick={this.submit} title='Calculate' variant="contained">
+              <Button color="primary" onClick={this.submit} variant="contained">
                 <FontAwesomeIcon icon={faCheck} />
               </Button>
             </Tooltip>
