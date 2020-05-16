@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pyproj
+import shapely.ops
 from descartes import PolygonPatch
 from shapely.geometry import Point, Polygon
 
@@ -12,7 +13,7 @@ RED = "#8B0000"
 GREEN = "#32CD32"
 
 # all mappings are FROM WGS84, epsg:4326
-# all mappings are too coordinate systems measured in meters.
+# all mappings are to coordinate systems measured in meters.
 global_proj = pyproj.Proj(init="epsg:4326")
 TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
     "epsg:3035": pyproj.Transformer.from_proj(
@@ -61,6 +62,30 @@ def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
     if len(coordinates[0]) < 3:
         raise ValueError("Cannot construct a polygon with less than 3 tuples.")
     return Polygon(coordinates[0])
+
+
+def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
+    """Convert a polygon in WGS84 to a polygon in a meter-based
+        coordinate system.
+
+    :param polygon: the polygon to be converted
+
+    :return: name of coordinate system used, another polygon.
+    """
+    # first check canaries
+    if polygon.within(BOUNDING_BOX_MAP["epsg:5634"]):
+        return (
+            "epsg:5634",
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:5634"], polygon),
+        )
+    # then europe as whole
+    if polygon.within(BOUNDING_BOX_MAP["epsg:3035"]):
+        return (
+            "epsg:3035",
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"], polygon),
+        )
+
+    raise ValueError("Could not convert to a meter-based coordinate system")
 
 
 def plot_line(ax, ob, color=BLUE):
