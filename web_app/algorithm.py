@@ -1,15 +1,114 @@
 import random
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import pyproj
+import shapely.ops
 from descartes import PolygonPatch
 from shapely.geometry import Point, Polygon, LineString, box
-from tqdm import tqdm
+from shapely.geometry import mapping as geojson_mapping
 
 BLUE = "#6699cc"
 GRAY = "#999999"
 RED = "#8B0000"
 GREEN = "#32CD32"
+
+# all mappings are FROM WGS84, epsg:4326
+# all mappings are to coordinate systems measured in meters.
+global_proj = pyproj.Proj("epsg:4326")
+TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
+    "epsg:3035": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj("epsg:3035")
+    ),  # most of europe
+    "epsg:5634": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj("epsg:5634")
+    ),  # canaries
+    "epsg:6269": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj("epsg:8826")
+    ),  # contiguous usa and canada
+}
+
+REVERSE_TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
+    "epsg:3035": pyproj.Transformer.from_proj(
+        pyproj.Proj("epsg:3035"), global_proj
+    ),  # most of europe
+    "epsg:5634": pyproj.Transformer.from_proj(
+        pyproj.Proj("epsg:5634"), global_proj
+    ),  # canaries
+    "epsg:6269": pyproj.Transformer.from_proj(
+        pyproj.Proj("epsg:8826"), global_proj
+    ),  # contiguous usa and canada
+}
+# BOUNDING BOXES IN WGS84
+BOUNDING_BOX_MAP = {
+    "epsg:3035": Polygon(
+        [(-16.1, 32.88), (-16.1, 84.17), (40.18, 84.17), (40.18, 32.88)]
+    ),
+    "epsg:5634": Polygon(
+        [(-21.73, 24.6), (-21.73, 32.76), (-11.75, 32.76), (-11.75, 24.6)]
+    ),
+}
+
+
+def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
+    """Construct a polygon from a geojson feature
+
+    :param feature: feature
+    :return: Polygon
+    """
+    coordinates = feature.get("geometry", {}).get("coordinates", [])
+    if not coordinates:
+        raise ValueError("No coordinates supplied")
+    # geojson nests stuff even more.
+    if len(coordinates[0]) < 3:
+        raise ValueError("Cannot construct a polygon with less than 3 tuples.")
+    return Polygon(coordinates[0])
+
+
+def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
+    """Convert a polygon in WGS84 to a polygon in a meter-based
+        coordinate system.
+
+    :param polygon: the polygon to be converted
+
+    :return: name of coordinate system used, another polygon.
+    """
+    # first check canaries
+    if polygon.within(BOUNDING_BOX_MAP["epsg:5634"]):
+        return (
+            "epsg:5634",
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:5634"].transform, polygon),
+        )
+    # then europe as whole
+    if polygon.within(BOUNDING_BOX_MAP["epsg:3035"]):
+        return (
+            "epsg:3035",
+            shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"].transform, polygon),
+        )
+
+    raise ValueError("Could not convert to a meter-based coordinate system")
+
+
+def metered_points_to_geojson(
+    points: List[Point], coordinate_system: str
+) -> List[Dict[str, Any]]:
+    """List of metered points to geojson object
+
+    :param points: list of points
+    :param coordinate_system: coordinate system
+    :return: geojson in WGS84.
+    """
+    return [
+        {
+            "type": "Feature",
+            "geometry": geojson_mapping(
+                shapely.ops.transform(
+                    REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, point
+                )
+            ),
+        }
+        for point in points
+    ]
 
 
 def plot_line(ax, ob, color=BLUE):
@@ -67,7 +166,9 @@ def generate_random(polygon: Polygon) -> Point:
     return pnt
 
 
-def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarray:
+def populate_square(
+    ob: Polygon, iters: int = 1000, r: float = 1.0, debug: bool = False
+) -> np.ndarray:
     """Function to populate a polygon "ob" with disks of radius "r".
     It performs "iters" attemps of disk insertion.
     It returns an array of the coordinates of the inserted disk centers.
@@ -80,11 +181,17 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
     pts[0, :] = np.asarray(generate_random(ob))
     accept = 1
     # Do n=iters disk insert attempt
-    for i in tqdm(range(iters)):
+    # TODO: numba, and pre-compute generate_random
+    for i in range(iters):
         #  Generate random point inside ob
         pts_temp = np.asarray(generate_random(ob))
+<<<<<<< HEAD
         # Calculate cartesian difference
         #  between pts_temp and all existing points in pts array
+=======
+        # Calculate cartesian difference between pts_temp and all existing points in pts
+        # array
+>>>>>>> master
         pts_diff = pts[:accept] - pts_temp
         # Perform overlap boolean check with all existing points in pts array
         euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
@@ -94,14 +201,17 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
             pts[accept, :] = pts_temp
             accept += 1
         # Print progress
-        if (i % int(iters / 10)) == 0:
+        if debug and (i % int(iters / 10)) == 0:
             print(f"Attempt: {i+1} Accepted: {accept-1}")
 
     return pts[:accept, :]
 
 
 def calculate(
-    polygon: Polygon, social_distance: float, buffer_zone_size: Optional[float] = None
+    polygon: Polygon,
+    n_iters: int = 5000,
+    social_distance: float = 1.5,
+    buffer_zone_size: Optional[float] = None,
 ) -> Tuple[int, List[Point]]:
     """Do the math
 
@@ -117,10 +227,11 @@ def calculate(
         polygon = polygon.difference(boundary)
 
     # Random insertion of disks in polygon -- returns disks' centers coordinates
-    disk_centers = populate_square(polygon, iters=30000, r=social_distance)
+    # FIXME: guesstimate number of iters based on polygon area.
+    disk_centers = populate_square(polygon, iters=n_iters, r=social_distance)
 
     # Convert to disk polygons
-    disks = [Point(i[0], i[1]).buffer(social_distance) for i in disk_centers]
+    disks = [Point(i[0], i[1]) for i in disk_centers]
 
     return len(disks), disks
 
