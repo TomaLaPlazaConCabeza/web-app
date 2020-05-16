@@ -6,6 +6,7 @@ import pyproj
 import shapely.ops
 from descartes import PolygonPatch
 from shapely.geometry import Point, Polygon
+from shapely.geometry import mapping as geojson_mapping
 
 BLUE = "#6699cc"
 GRAY = "#999999"
@@ -86,6 +87,28 @@ def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
         )
 
     raise ValueError("Could not convert to a meter-based coordinate system")
+
+
+def metered_points_to_geojson(
+    points: List[Point], coordinate_system: str
+) -> List[Dict[str, Any]]:
+    """List of metered points to geojson object
+
+    :param points: list of points
+    :param coordinate_system: coordinate system
+    :return: geojson in WGS84.
+    """
+    return [
+        {
+            "type": "Feature",
+            "geometry": geojson_mapping(
+                shapely.ops.transform(
+                    REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, point
+                )
+            ),
+        }
+        for point in points
+    ]
 
 
 def plot_line(ax, ob, color=BLUE):

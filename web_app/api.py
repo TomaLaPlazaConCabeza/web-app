@@ -11,24 +11,32 @@ Example input to calculate endpoint:
                 "coordinates": [
                     [
                         [
-                            100,
-                            0
+                            -16.817703,
+                            28.365476
                         ],
                         [
-                            200,
-                            0
+                            -16.817043,
+                            28.3654
                         ],
                         [
-                            101,
-                            100
+                            -16.81706,
+                            28.365689
                         ],
                         [
-                            100,
-                            -100
+                            -16.817178,
+                            28.365681
                         ],
                         [
-                            100,
-                            0
+                            -16.817471,
+                            28.365681
+                        ],
+                        [
+                            -16.817683,
+                            28.365683
+                        ],
+                        [
+                            -16.817703,
+                            28.365476
                         ]
                     ]
                 ]
@@ -38,9 +46,13 @@ Example input to calculate endpoint:
 }
 """
 import flask
-from shapely.geometry import mapping as geojson_mapping
 
-from .algorithm import calculate, polygon_from_geosjon_feature
+from .algorithm import (
+    calculate,
+    convert_wgs84_to_meter_system,
+    metered_points_to_geojson,
+    polygon_from_geosjon_feature,
+)
 
 blueprint = flask.Blueprint("api", __name__)
 
@@ -72,12 +84,9 @@ def calculate_endpoint():
         polygon = polygon_from_geosjon_feature(
             all_polygons[0]
         )  # FIXME: only taking first one for now
-        # FIXME do conversion to meters here :-).
-        _, raw_points = calculate(polygon)
-        points = [
-            {"type": "Feature", "geometry": geojson_mapping(point)}
-            for point in raw_points
-        ]
+        coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
+        _, raw_points = calculate(metered_polygon)
+        points = metered_points_to_geojson(raw_points, coord_system)
 
     return flask.jsonify(
         {
