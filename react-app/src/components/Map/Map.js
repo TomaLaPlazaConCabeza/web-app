@@ -1,10 +1,11 @@
 import React, { Component, Suspense, lazy } from 'react';
-import { TextField, Button, Box, Grid, List, ListItem, ListItemText, ListItemSecondaryAction } from '@material-ui/core';
+import { TextField, Button, Box, Grid, List, ListItem, ListItemText, ListItemSecondaryAction, Tooltip, Paper } from '@material-ui/core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDrawPolygon, faCheck, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 
 import loadGoogleApi from '../../utils/googleLoader';
+import { postPolygons } from '../../utils/api';
 import { Loader } from '../../components';
 
 import style from './Map.module.scss';
@@ -58,7 +59,7 @@ class Map extends Component {
       drawingMode: maps.drawing.OverlayType.POLYGON,
       drawingControl: true,
       drawingControlOptions: {
-        position: maps.ControlPosition.TOP_CENTER,
+        position: maps.ControlPosition.BOTTOM_CENTER,
         drawingModes: [ 'polygon' ],
       },
 
@@ -269,7 +270,7 @@ class Map extends Component {
       'type': 'FeatureCollection',
     };
 
-    console.log(request);
+    postPolygons(request);
   }
 
   render() {
@@ -278,32 +279,23 @@ class Map extends Component {
       <div className={style.wrapper} ref={(ref) => (this.containerRef = ref)}>
         <div className={style.toolbar}>
           <TextField label='Search' onChange={this.handleSearchInputChange} ref={(ref) => (this.searchRef = ref)} size="small" type="text" value={search} variant="outlined" />
-          <Box>
+          <Box className={style.actions}>
             {/* <TextField label='Humans' onChange={this.handleHumansInputChange} size="small" type="number" value={humans} variant="outlined" /> */}
-            <Button color="secondary" onClick={this.addPolygon} onMouseDown={this.handleDrag(TYPE_POLYGON)} title='Add polygon' variant="contained"><FontAwesomeIcon icon={faDrawPolygon} /></Button>
-            <Button color="primary" onClick={this.submit} title='Calculate' variant="contained"><FontAwesomeIcon icon={faCheck} /></Button>
+            <Tooltip title='Add polygon'>
+              <Button color="secondary" onClick={this.addPolygon} onMouseDown={this.handleDrag(TYPE_POLYGON)} variant="contained">
+                <FontAwesomeIcon icon={faDrawPolygon} />
+              </Button>
+            </Tooltip>
+
+            <Tooltip title='Calculate'>
+              <Button color="primary" onClick={this.submit} title='Calculate' variant="contained">
+                <FontAwesomeIcon icon={faCheck} />
+              </Button>
+            </Tooltip>
           </Box>
         </div>
-        <Grid className={style.grid} container>
-          <Grid item xs={10}>
-            <div className={style.map} ref={(ref) => (this.mapRef = ref)} />
-          </Grid>
-          <Grid item xs={2}>
-            <List>
-              {Object.values(polygons).map((poly, i) => {
-                return (
-                  <ListItem button key={i} onClick={() => this.handlePolyginListClick(poly)}>
-                    <ListItemText>Polygon {i + 1}</ListItemText>
-                    <ListItemSecondaryAction onClick={() => this.deletePoly(poly)}>
-                      <FontAwesomeIcon icon={faTrash} />
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                );
-              })}
-            </List>
-          </Grid>
+        <Paper className={style.map} ref={(ref) => (this.mapRef = ref)} />
 
-        </Grid>
 
       </div>
     );
