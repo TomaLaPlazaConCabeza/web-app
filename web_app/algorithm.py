@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 from descartes import PolygonPatch
-from shapely.geometry import Point, Polygon
+from shapely.geometry import Point, Polygon, LineString, box
 from tqdm import tqdm
 
 BLUE = "#6699cc"
@@ -29,6 +29,30 @@ def plot_coords(ax, ob, color=GRAY):
     # If single, point plot
     else:
         ax.scatter(coords[0], coords[1], color=color)
+
+
+def correct_line_intersection(coords: List[float]) -> Polygon:
+    """Function that converts a list of 2D coordinates (importable into Shapely)
+     into a closed Polygon.
+     Coordinates are assumed to be in meters.
+     It accounts for lines that potentially intersects.
+    """
+    # Generate LineString obj from coordinates
+    polyline = LineString(coords)
+
+    # Create tiny buffer region around polyline
+    polyline_buffer = polyline.buffer(0.1)
+
+    # Create bounding box of polyline_buffer
+    bbox = box(*polyline_buffer.bounds)
+
+    # Obtain a list of unconnected polygons by difference of bbox and polyline_buffer
+    list_polygons = bbox.difference(polyline_buffer)
+
+    # Valid polygon is the one with max area
+    polygon = max(list_polygons, key=lambda a: a.area)
+
+    return polygon
 
 
 def generate_random(polygon: Polygon) -> Point:
@@ -59,7 +83,8 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
     for i in tqdm(range(iters)):
         #  Generate random point inside ob
         pts_temp = np.asarray(generate_random(ob))
-        # Calculate cartesian difference between pts_temp and all existing points in pts array
+        # Calculate cartesian difference
+        #  between pts_temp and all existing points in pts array
         pts_diff = pts[:accept] - pts_temp
         # Perform overlap boolean check with all existing points in pts array
         euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
