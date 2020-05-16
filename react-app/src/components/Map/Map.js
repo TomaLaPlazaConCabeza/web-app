@@ -1,5 +1,5 @@
 import React, { Component, Suspense, lazy } from 'react';
-import { TextField, Button, Box, Grid, List, ListItem, ListItemText, ListItemSecondaryAction, Tooltip, Paper } from '@material-ui/core';
+import { TextField, Button, Box, Grid, List, ListItem, ListItemText, ListItemSecondaryAction, Tooltip, Paper, Drawer } from '@material-ui/core';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDrawPolygon, faCheck, faTrash } from '@fortawesome/free-solid-svg-icons';
 
@@ -43,6 +43,7 @@ class Map extends Component {
       zoom: 20,
     });
 
+    console.log(this.map, maps);
 
     this.autocomplete = new maps.places.Autocomplete(this.searchRef.querySelector('input'));
     this.autocomplete.bindTo('bounds', this.map);
@@ -83,6 +84,20 @@ class Map extends Component {
 
   componentWillUnmount() {
     document.body.removeEventListener('mouseup', this.handleMouseUp);
+  }
+
+  componentDidUpdate(pp, ps) {
+    const { api: { maps } } = this.props;
+    const ts = this.state;
+
+    if(ps.people !== ts.people) {
+      this.map.data.forEach(this.map.data.remove);
+      // this.map.data.setStyle({
+      //   shape: maps.MarkerShape(0, 0, 5),
+      //   fillColor: 'green',
+      // });
+      this.map.data.addGeoJson(ts.people);
+    }
   }
 
 
@@ -243,13 +258,13 @@ class Map extends Component {
     }, 1000);
   }
 
-  submit = () => {
+  submit = async () => {
+    const { api: { maps } } = this.props;
     const { polygons } = this.state;
 
     const features = Object.values(polygons).reduce((acc, poly) => {
       if(poly) {
-        console.log(poly.getPath());
-        const coordinates = poly.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
+        const coordinates = [ poly.getPath().getArray().map((p) => [ p.lng(), p.lat() ]) ];
         acc.push({
           'type': 'Feature',
           'geometry': {
@@ -270,11 +285,20 @@ class Map extends Component {
       'type': 'FeatureCollection',
     };
 
-    postPolygons(request);
+    const people = await postPolygons(request);
+
+    this.setState({
+      people,
+    });
+  }
+
+  handleDrawerToggle = () => {
+
   }
 
   render() {
-    const { search, polygons } = this.state;
+    const { search, polygons, mobileOpen, people } = this.state;
+    const container = window !== undefined ? () => window.document.body : undefined;
     return (
       <div className={style.wrapper} ref={(ref) => (this.containerRef = ref)}>
         <div className={style.toolbar}>
@@ -295,8 +319,30 @@ class Map extends Component {
           </Box>
         </div>
         <Paper className={style.map} ref={(ref) => (this.mapRef = ref)} />
+        {/* <Drawer
+          anchor='right'
+          container={container}
+          onClose={this.handleDrawerToggle}
+          open={true}
 
-
+          variant="temporary"
+        >
+          <List>
+            {Object.values(polygons).map((poly, i) => {
+              return (
+                <ListItem button key={i} onClick={() => this.handlePolyginListClick(poly)}>
+                  <ListItemText>Polygon {i + 1}</ListItemText>
+                  <ListItemSecondaryAction onClick={() => this.deletePoly(poly)}>
+                    <FontAwesomeIcon icon={faTrash} />
+                  </ListItemSecondaryAction>
+                </ListItem>
+              );
+            })}
+          </List>
+        </Drawer> */}
+        <Box>
+          People: {people ? people.properties.n_humans : 'N/A'}
+        </Box>
       </div>
     );
   }
