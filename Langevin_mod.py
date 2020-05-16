@@ -73,10 +73,10 @@ def computeForce(mass, vels, temp, visc, dt, radius2):
     natoms, ndims = vels.shape
 
     #this noise is the brownian stuff essentially
-    sigma = np.sqrt(2.0 * mass * temp * Boltzmann / ((6*np.pi*visc*radius2)* dt))
+    sigma = np.sqrt(2.0 * temp * Boltzmann *(6*np.pi*visc*radius2)/dt)
     noise = np.random.randn(natoms, ndims) * sigma[np.newaxis].T
 
-    force = - (vels * mass[np.newaxis].T) /(6*np.pi*visc*radius2) + noise
+    force = - (vels * (6*np.pi*visc*radius2) )+ noise
     
     return force
 
@@ -118,7 +118,7 @@ def run(**args):
     print(pos)
 
 #defines the initial values here
-    vels = np.random.rand(natoms,dim)*10
+    vels = np.random.rand(natoms,dim)*0.0001
     mass = np.ones(natoms) * mass / Avogadro
     radius2=radius
     radius = np.ones(natoms) * radius
@@ -154,13 +154,13 @@ if __name__ == '__main__':
     params = {
         'natoms': 70,
         'temp': 300,
-        'mass': 1e1,
-        'radius': 25e-9,
+        'mass': 5e8,
+        'radius': 20e-9,
         'visc': 8.9e-4,
-        'dt': 1e-11,
-        'steps': 1000,
+        'dt': 5e-8,
+        'steps': 3000,
         'freq': 10,
-        'box': ((0, 20e-8), (0, 20e-8)),
+        'box': ((0, 10e-7), (0, 10e-7)),
         'ofname': 'test_colloid.dump'
         }
 
