@@ -59,7 +59,8 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
     for i in tqdm(range(iters)):
         #  Generate random point inside ob
         pts_temp = np.asarray(generate_random(ob))
-        # Calculate cartesian difference between pts_temp and all existing points in pts array
+        # Calculate cartesian difference between pts_temp and all existing points in pts
+        # array
         pts_diff = pts[:accept] - pts_temp
         # Perform overlap boolean check with all existing points in pts array
         euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
