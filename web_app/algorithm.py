@@ -1,15 +1,29 @@
 import random
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from descartes import PolygonPatch
 from shapely.geometry import Point, Polygon
-from tqdm import tqdm
 
 BLUE = "#6699cc"
 GRAY = "#999999"
 RED = "#8B0000"
 GREEN = "#32CD32"
+
+
+def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
+    """Construct a polygon from a geojson feature
+
+    :param feature: feature
+    :return: Polygon
+    """
+    coordinates = feature.get("geometry", {}).get("coordinates", [])
+    if not coordinates:
+        raise ValueError("No coordinates supplied")
+    # geojson nests stuff even more.
+    if len(coordinates[0]) < 3:
+        raise ValueError("Cannot construct a polygon with less than 3 tuples.")
+    return Polygon(coordinates[0])
 
 
 def plot_line(ax, ob, color=BLUE):
@@ -43,7 +57,9 @@ def generate_random(polygon: Polygon) -> Point:
     return pnt
 
 
-def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarray:
+def populate_square(
+    ob: Polygon, iters: int = 1000, r: float = 1.0, debug: bool = False
+) -> np.ndarray:
     """Function to populate a polygon "ob" with disks of radius "r".
     It performs "iters" attemps of disk insertion.
     It returns an array of the coordinates of the inserted disk centers.
@@ -56,7 +72,8 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
     pts[0, :] = np.asarray(generate_random(ob))
     accept = 1
     # Do n=iters disk insert attempt
-    for i in tqdm(range(iters)):
+    # TODO: numba, and pre-compute generate_random
+    for i in range(iters):
         #  Generate random point inside ob
         pts_temp = np.asarray(generate_random(ob))
         # Calculate cartesian difference between pts_temp and all existing points in pts
@@ -70,14 +87,17 @@ def populate_square(ob: Polygon, iters: int = 1000, r: float = 1.0) -> np.ndarra
             pts[accept, :] = pts_temp
             accept += 1
         # Print progress
-        if (i % int(iters / 10)) == 0:
+        if debug and (i % int(iters / 10)) == 0:
             print(f"Attempt: {i+1} Accepted: {accept-1}")
 
     return pts[:accept, :]
 
 
 def calculate(
-    polygon: Polygon, social_distance: float, buffer_zone_size: Optional[float] = None
+    polygon: Polygon,
+    n_iters: int = 5000,
+    social_distance: float = 1.5,
+    buffer_zone_size: Optional[float] = None,
 ) -> Tuple[int, List[Point]]:
     """Do the math
 
@@ -93,10 +113,11 @@ def calculate(
         polygon = polygon.difference(boundary)
 
     # Random insertion of disks in polygon -- returns disks' centers coordinates
-    disk_centers = populate_square(polygon, iters=30000, r=social_distance)
+    # FIXME: guesstimate number of iters based on polygon area.
+    disk_centers = populate_square(polygon, iters=n_iters, r=social_distance)
 
     # Convert to disk polygons
-    disks = [Point(i[0], i[1]).buffer(social_distance) for i in disk_centers]
+    disks = [Point(i[0], i[1]) for i in disk_centers]
 
     return len(disks), disks
 

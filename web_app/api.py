@@ -1,4 +1,46 @@
+"""
+Example input to calculate endpoint:
+
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [
+                            100,
+                            0
+                        ],
+                        [
+                            200,
+                            0
+                        ],
+                        [
+                            101,
+                            100
+                        ],
+                        [
+                            100,
+                            -100
+                        ],
+                        [
+                            100,
+                            0
+                        ]
+                    ]
+                ]
+            }
+        }
+    ]
+}
+"""
 import flask
+from shapely.geometry import mapping as geojson_mapping
+
+from .algorithm import calculate, polygon_from_geosjon_feature
 
 blueprint = flask.Blueprint("api", __name__)
 
@@ -27,6 +69,20 @@ def calculate_endpoint():
     if not all_polygons:
         points = []
     else:
-        points = []  # get points here.
+        polygon = polygon_from_geosjon_feature(
+            all_polygons[0]
+        )  # FIXME: only taking first one for now
+        # FIXME do conversion to meters here :-).
+        _, raw_points = calculate(polygon)
+        points = [
+            {"type": "Feature", "geometry": geojson_mapping(point)}
+            for point in raw_points
+        ]
 
-    return flask.jsonify({"type": "FeatureCollection", "features": points})
+    return flask.jsonify(
+        {
+            "type": "FeatureCollection",
+            "features": points,
+            "properties": {"n_humans": len(points)},
+        }
+    )
