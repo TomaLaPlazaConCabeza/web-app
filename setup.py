@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 with open("README.md") as handle:
     LONG_DESCRIPTION = handle.read()
@@ -9,7 +9,7 @@ setup(
     long_description=LONG_DESCRIPTION,
     version="0.1.0-dev",
     author="TomaLaPlazaConCabeza",
-    author_email="sander@sndrtj.eu",
+    author_email="alecacius@gmail.com",
     url="https://github.com/TomaLaPlazaConCabeza/web-app",
     license="BSD-3-clause",
     packages=find_packages(),
