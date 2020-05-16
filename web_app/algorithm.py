@@ -2,6 +2,7 @@ import random
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import pyproj
 from descartes import PolygonPatch
 from shapely.geometry import Point, Polygon
 
@@ -9,6 +10,21 @@ BLUE = "#6699cc"
 GRAY = "#999999"
 RED = "#8B0000"
 GREEN = "#32CD32"
+
+# all mappings are FROM WGS84, epsg:4326
+# all mappings are too coordinate systems measured in meters.
+global_proj = pyproj.Proj(init="epsg:4326")
+TRANSFORMER_MAPPING: Dict[str, pyproj.Transformer] = {
+    "epsg:3035": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj(init="epsg:3035")
+    ),  # most of europe
+    "epsg:5634": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj(init="epsg:5634")
+    ),  # canaries
+    "epsg:8826": pyproj.Transformer.from_proj(
+        global_proj, pyproj.Proj(init="epsg:8826")
+    ),  # contiguous usa and canada
+}
 
 
 def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
