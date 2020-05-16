@@ -9,3 +9,10 @@
   height: 100%;
   min-height: 500px;
 }
+
+.toolbar {
+  display: -webkit-flex;
+  display: -ms-flex;
+  display: flex;
+  justify-content: space-between;
+}

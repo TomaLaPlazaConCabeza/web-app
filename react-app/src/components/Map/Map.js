@@ -1,4 +1,5 @@
 import React, { Component, Suspense, lazy } from 'react';
+import { TextField } from '@material-ui/core';
 
 import loadGoogleApi from '../../utils/googleLoader';
 import { Loader } from '../../components';
@@ -21,12 +22,13 @@ class Map extends Component {
   componentDidMount() {
     const { api: { maps } } = this.props;
     console.log(maps);
+
     this.map = new maps.Map(this.mapRef, {
       center: { lat: -34.397, lng: 150.644 },
       zoom: 8,
     });
 
-    this.autocomplete = new maps.places.Autocomplete(this.searchRef);
+    this.autocomplete = new maps.places.Autocomplete(this.searchRef.querySelector('input'));
 
     if(navigator.geolocation) {
       navigator.geolocation.getCurrentPosition( (position) => {
@@ -47,7 +49,7 @@ class Map extends Component {
     return (
       <div className={style.wrapper} ref={(ref) => (this.containerRef = ref)}>
         <div className={style.toolbar}>
-          <input placeholder='Search..' ref={(ref) => (this.searchRef = ref)} type="text" />
+          <TextField label='Search' ref={(ref) => (this.searchRef = ref)} size="small" type="text" variant="outlined" />
 
         </div>
         <div className={style.map} ref={(ref) => (this.mapRef = ref)} />
