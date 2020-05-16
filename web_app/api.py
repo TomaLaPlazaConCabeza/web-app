@@ -50,6 +50,7 @@ import flask
 from .algorithm import (
     calculate,
     convert_wgs84_to_meter_system,
+    correct_line_intersection,
     metered_points_to_geojson,
     polygon_from_geosjon_feature,
 )
@@ -85,7 +86,10 @@ def calculate_endpoint():
             all_polygons[0]
         )  # FIXME: only taking first one for now
         coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
-        _, raw_points = calculate(metered_polygon)
+        # fix for weird self-intersections
+        _, raw_points = calculate(
+            correct_line_intersection(metered_polygon.exterior.coords)
+        )
         points = metered_points_to_geojson(raw_points, coord_system)
 
     return flask.jsonify(

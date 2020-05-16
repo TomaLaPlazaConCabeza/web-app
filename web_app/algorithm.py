@@ -5,7 +5,8 @@ import numpy as np
 import pyproj
 import shapely.ops
 from descartes import PolygonPatch
-from shapely.geometry import Point, Polygon, LineString, box
+from shapely.coords import CoordinateSequence
+from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry import mapping as geojson_mapping
 
 BLUE = "#6699cc"
@@ -130,9 +131,10 @@ def plot_coords(ax, ob, color=GRAY):
         ax.scatter(coords[0], coords[1], color=color)
 
 
-def correct_line_intersection(coords: List[float]) -> Polygon:
-    """Function that converts a list of 2D coordinates (importable into Shapely)
-     into a closed Polygon.
+def correct_line_intersection(coords: CoordinateSequence) -> Polygon:
+    """Function that converts a list of 2D cartesian coordinates
+    (importable into Shapely) into a closed Polygon.
+
      Coordinates are assumed to be in meters.
      It accounts for lines that potentially intersects.
     """
