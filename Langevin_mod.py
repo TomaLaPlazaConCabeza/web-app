@@ -60,7 +60,7 @@ def integrate(pos, vels, forces, mass,  dt):
     print(pos)
     vels += forces * dt / mass[np.newaxis].T
     
-def computeForce(mass, vels, temp, visc, dt):
+def computeForce(mass, vels, temp, visc, dt, radius2):
     """ Computes the Langevin force for all particles
     @mass: particle mass (ndarray)
     @vels: particle velocities (ndarray)
@@ -73,10 +73,10 @@ def computeForce(mass, vels, temp, visc, dt):
     natoms, ndims = vels.shape
 
     #this noise is the brownian stuff essentially
-    sigma = np.sqrt(2.0 * mass * temp * Boltzmann*visc / ( dt))
+    sigma = np.sqrt(2.0 * mass * temp * Boltzmann / ((6*np.pi*visc*radius2)* dt))
     noise = np.random.randn(natoms, ndims) * sigma[np.newaxis].T
 
-    force = - (vels * mass[np.newaxis].T) * visc + noise
+    force = - (vels * mass[np.newaxis].T) /(6*np.pi*visc*radius2) + noise
     
     return force
 
@@ -118,8 +118,9 @@ def run(**args):
     print(pos)
 
 #defines the initial values here
-    vels = np.random.rand(natoms,dim)
+    vels = np.random.rand(natoms,dim)*10
     mass = np.ones(natoms) * mass / Avogadro
+    radius2=radius
     radius = np.ones(natoms) * radius
     step = 0
 
@@ -131,7 +132,7 @@ def run(**args):
         step += 1
 
         # Compute all forces
-        forces = computeForce(mass, vels, temp, visc, dt)
+        forces = computeForce(mass, vels, temp, visc, dt, radius2)
 
         # Move the system in time
         integrate(pos, vels, forces, mass, dt)
@@ -151,23 +152,35 @@ def run(**args):
 if __name__ == '__main__':
 
     params = {
-        'natoms': 20,
+        'natoms': 50,
         'temp': 300,
-        'mass': 1,
-        'radius': 1000e-9,
+        'mass': 1e1,
+        'radius': 20e-9,
         'visc': 8.9e-4,
-        'dt': 5e-6,
+        'dt': 1e-11,
         'steps': 1000,
-        'freq': 100,
-        'box': ((0, 5000e-6), (0, 5000e-6)),
+        'freq': 10,
+        'box': ((0, 20e-8), (0, 20e-8)),
         'ofname': 'test_colloid.dump'
         }
 
     output = run(**params)
    
-    plt.scatter(output[:20,0],output[:20,1])
-    plt.figure
-    plt.scatter(output[20:40,0],output[20:40,1])
+
+    
+#plotting the trajectories to check if it behaves as we want it to    
+    for j in range(0,int(params["natoms"])):
+        track=np.array([[],[]]).T
+        for i in range(0,int(params["steps"]/params["freq"])):
+            track=np.vstack((track,output[i*int(params["natoms"])+j,:]))
+            plt.plot(track[:,0],track[:,1], 'b-') 
+            plt.plot(track[:,0],track[:,1], '.r')
+            axes = plt.gca()
+            axes.set_xlim([params["box"][0][0],params["box"][0][1]])
+            axes.set_ylim([params["box"][1][0],params["box"][1][1]])
+                               
+    
+        
 
     '''
     plt.plot(output[:,0] * 1e3, output[:,1])
