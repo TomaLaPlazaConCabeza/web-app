@@ -13,7 +13,6 @@ class Home extends Component {
         <p>An intuitive user interface. Draw your favorite plaza, draw eventual obstacles, get the number of people that can fit in! (COVID-approved).</p>
         <p>You can set the minimum “security distance” that people need to respect. You can also simulate the presence of barriers at the edges of the map by setting their size.</p>
         <p>This allows you to estimate, for instance, the number of people allowed for an event (e.g., a Sunday market, a concert, etc.)</p>
-        <p>Future implementations considered can be found below the interactive map.</p>
         <h2>Future implementations</h2>
         <ol>
             <li>Beyond Stochastic: Dynamics of the people in the plazas.</li>
