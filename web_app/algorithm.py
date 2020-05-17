@@ -51,6 +51,10 @@ BOUNDING_BOX_MAP = {
 }
 
 
+# maximum supported size is 15 hectares.
+MAX_SUPPORTED_SIZE = 1.5e5  # in m^2.
+
+
 def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
     """Construct a polygon from a geojson feature
 

@@ -48,6 +48,7 @@ Example input to calculate endpoint:
 import flask
 
 from .algorithm import (
+    MAX_SUPPORTED_SIZE,
     calculate,
     convert_wgs84_to_meter_system,
     correct_line_intersection,
@@ -93,14 +94,24 @@ def calculate_endpoint():
         try:
             polygon = polygon_from_geosjon_feature(all_polygons[0])
         except ValueError:
-            flask.abort(400, "Polygon contains too little items to compute.")
+            flask.abort(400, "You have drawn too few points.")
 
         try:
             coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
         except ValueError:
-            flask.abort(400, "Could not convert to a meter-based coordinate system.")
+            flask.abort(
+                400,
+                (
+                    "Your location unfortunately resides outside "
+                    "supported area (most of Europe & Canary Islands)."
+                ),
+            )
 
         # fix for weird self-intersections
+        if metered_polygon.area > MAX_SUPPORTED_SIZE:
+            flask.abort(
+                400, "Your submitted area is larger than the maximum supported area."
+            )
         n_humans, raw_points = calculate(
             correct_line_intersection(metered_polygon.exterior.coords)
         )
