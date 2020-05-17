@@ -5,32 +5,18 @@ class About extends Component {
   render() {
     return (
       <div>
-        <h1>As you may or may not know, Lindsay and I have hit a bit of a rough patch.</h1>
-        <p>He'll want to use your yacht, and I don't want this thing smelling like fish. But I bought a yearbook ad from you, doesn't that mean anything anymore? I'm a monster. I'm afraid I just blue myself. Marry me.</p>
-        <p>Say goodbye to these, because it's the last time! As you may or may not know, Lindsay and I have hit a bit of a rough patch. <strong> That's why you always leave a note!</strong> <em> There's only one man I've ever called a coward, and that's Brian Doyle Murray.</em> No, what I'm calling you is a television actor.</p>
-        <h2>No! I was ashamed to be SEEN with you. I like being with you.</h2>
-        <p>I'm a monster. I'm afraid I just blue myself. I don't understand the question, and I won't respond to it. Did you enjoy your meal, Mom? You drank it fast enough. I don't understand the question, and I won't respond to it.</p>
-        <ol>
-          <li>Really? Did nothing cancel?</li><li>Say goodbye to these, because it's the last time!</li><li>I'm afraid I just blue myself.</li>
-        </ol>
-
-        <h3>As you may or may not know, Lindsay and I have hit a bit of a rough patch.</h3>
-        <p>I care deeply for nature. Army had half a day. As you may or may not know, Lindsay and I have hit a bit of a rough patch. What's Spanish for "I know you speak English?"</p>
+        <h1>Credits</h1>
+        <p>This web-app was developed during the 48 hours HackingCovid event, an online Hackaton based in Tenerife, Canary Islands (<a href="https://hackathon.ayudadigital.org/">link</a>)</p>
+        <h2>People</h2>
         <ul>
-          <li>I'm a monster.</li><li>Army had half a day.</li><li>Army had half a day.</li>
+            <li>Álvaro González García (<a href="www.linkedin.com/in/álvaro-gonzález-garcía-620a17175">LinkedIn</a>). <p>Original idea, implementation of first-and very inefficient- algorithm in WolframMathematica. Manager of this no-profit project. Mentor of the team during the HackingCovid event.</p> </li>
+            <li>Alessio Caglaci (LinkedIn)<p>Extension and improvement of the WolframMathematica script. First incorporation of the script in Python. Manager of the team during HackingCovid.</p></li>
+            <li>James Martin (LinkedIn). <p>Conducted calculations using the WolframMathematica script. Implementation of Langevin dynamics in Python (work on progress)</p></li>
+            <li>Sander Bollen (LinkedIn). <p>Back-end developer. Hardcore Python wizard. Making sure everything even works.</p></li>
+            <li>Grazvydas Luncinskas (LinkedIn). <p>Front-end developer. Making things looking nice since the beginning of the universe</p></li>
+            <li>Cristina Hernández (instagram). <p>Craftwomen of jewellery and macramé at Pisando Colores (Tenerife). Checked the venting stand size and provided in-situ information about number of itinerant vendors.</p></li>
+            <li>Maite Giordano (instagram). <p>Craftwomen of paper and binding. Happydelalaif. Provided ground-view information before HackingCovid.</p></li>
         </ul>
-
-        <p>Whoa, this guy's straight? I'm afraid I just blue myself. Army had half a day. I've opened a door here that I regret. We just call it a sausage. Did you enjoy your meal, Mom? You drank it fast enough.</p>
-        <p>First place chick is hot, but has an attitude, doesn't date magicians. I hear the jury's still out on science. Really? Did nothing cancel? I'm half machine. I'm a monster. I've opened a door here that I regret.</p>
-        <p>No, I did not kill Kitty. However, I am going to oblige and answer the nice officer's questions because I am an honest man with no secrets to hide. Guy's a pro. As you may or may not know, Lindsay and I have hit a bit of a rough patch.</p>
-        <p>Across from where? Now, when you do this without getting punched in the chest, you'll have more fun. There's so many poorly chosen words in that sentence. I'm half machine. I'm a monster. That's what it said on 'Ask Jeeves.'</p>
-        <p>We just call it a sausage. I'm afraid I just blue myself. It's a hug, Michael. I'm hugging you. Guy's a pro. Get me a vodka rocks. And a piece of toast.</p>
-        <p>He'll want to use your yacht, and I don't want this thing smelling like fish. There's so many poorly chosen words in that sentence. I'm a monster. That's what it said on 'Ask Jeeves.'</p>
-        <p>There's only one man I've ever called a coward, and that's Brian Doyle Murray. No, what I'm calling you is a television actor. That's why you always leave a note! I hear the jury's still out on science.</p>
-        <p>It's called 'taking advantage.' It's what gets you ahead in life. But I bought a yearbook ad from you, doesn't that mean anything anymore? Did you enjoy your meal, Mom? You drank it fast enough. Well, what do you expect, mother?</p>
-        <p>It's a hug, Michael. I'm hugging you. But I bought a yearbook ad from you, doesn't that mean anything anymore? Get me a vodka rocks. And a piece of toast. As you may or may not know, Lindsay and I have hit a bit of a rough patch.</p>
-        <p>I care deeply for nature. I'm afraid I just blue myself. I'm a monster. No, I did not kill Kitty. However, I am going to oblige and answer the nice officer's questions because I am an honest man with no secrets to hide.</p>
-        <p>First place chick is hot, but has an attitude, doesn't date magicians. Bad news. Andy Griffith turned us down. He didn't like his trailer. I'm half machine. I'm a monster. Did you enjoy your meal, Mom? You drank it fast enough.</p>
       </div>
     );
   }
