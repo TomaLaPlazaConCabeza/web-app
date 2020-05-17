@@ -89,6 +89,9 @@ def calculate_endpoint():
         if item.get("geometry", {}).get("type") == "Polygon"
     ]
 
+    barrier_size: float = body.get("properties", {}).get("barrierSize", 0)
+    social_distance_radius: float = body.get("properties", {}).get("personRadius", 1.5)
+
     if not all_polygons:
         return flask.jsonify(
             {
@@ -142,7 +145,11 @@ def calculate_endpoint():
             400, "Your submitted area is larger than the maximum supported area."
         )
 
-    calc_result = calculate(composite_polygon)
+    calc_result = calculate(
+        composite_polygon,
+        social_distance=social_distance_radius,
+        buffer_zone_size=barrier_size if not barrier_size <= 0 else None,
+    )
 
     serializer = calc_result_to_serializable(calc_result, coord_system, polygon_id)
 
