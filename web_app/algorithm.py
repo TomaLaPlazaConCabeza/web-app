@@ -273,9 +273,12 @@ def random_disk_insertion(
     :param r:
     :return:
     """
-    accept = 1
     r_square = r ** 2
-    for i in range(min(n_iter, filtered.shape[0])):
+    # Init first point
+    pts[0, :] = filtered[0, :]
+    accept = 1
+    # Loop
+    for i in range(1, min(n_iter, filtered.shape[0])):
         #  Generate random point inside ob
         pts_temp = filtered[i, :]
         # Calculate cartesian difference
