@@ -11,6 +11,10 @@ export const postPolygons = async (request) => {
   });
 
   const json = await response.json();
+  if(response.status !== 200) {
+    throw new Error(json.message);
+  }
+
 
   return json;
 };

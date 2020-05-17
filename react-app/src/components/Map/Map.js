@@ -1,10 +1,28 @@
 import React, { Component, Suspense, lazy } from 'react';
-import { TextField, Button, Menu, MenuItem, Hidden, List, Box, IconButton, ButtonGroup, ListItem, ListItemText, ListItemSecondaryAction, Tooltip, Paper, Drawer } from '@material-ui/core';
-import { ToggleButtonGroup, ToggleButton } from '@material-ui/lab';
+
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDrawPolygon, faList, faBars, faCheck, faTrash, faPlus, faMinus, faUndo, faRedo } from '@fortawesome/free-solid-svg-icons';
 import { cloneDeep } from 'lodash';
+import { ToggleButtonGroup, ToggleButton, Alert } from '@material-ui/lab';
 
+import {
+  Box,
+  Button,
+  ButtonGroup,
+  Drawer,
+  Hidden,
+  IconButton,
+  List,
+  ListItem,
+  ListItemSecondaryAction,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Snackbar,
+  TextField,
+  Tooltip,
+} from '@material-ui/core';
 
 import loadGoogleApi from '../../utils/googleLoader';
 import { postPolygons } from '../../utils/api';
@@ -23,7 +41,6 @@ const flattenPolygon = (p) => {
     return acc;
   }, []);
 };
-
 
 
 class Map extends Component {
@@ -48,6 +65,9 @@ class Map extends Component {
       people: null,
       search: '',
       action: ACTION_ADD,
+      error: null,
+      personRadius: 2,
+      barrierSize: 0,
     };
 
     this.containerRef = null;
@@ -131,17 +151,19 @@ class Map extends Component {
     }
 
     if(!this.historyAction && this.historyPush) {
-      this.historyStep += 1;
-
-      while(this.history.length - 1 > this.historyStep) {
-        this.history.pop();
-      }
-      this.history[this.historyStep] = cloneDeep(ts);
+      this.pushHistory();
     }
     this.historyAction = false;
     this.historyPush = false;
   }
 
+  pushHistory = () => {
+    this.historyStep += 1;
+    while(this.history.length - 1 > this.historyStep) {
+      this.history.pop();
+    }
+    this.history[this.historyStep] = cloneDeep(this.state);
+  }
 
   getBoundsZoomLevel(bounds) {
     var WORLD_DIM = { height: 256, width: 256 };
@@ -245,6 +267,7 @@ class Map extends Component {
 
     maps.event.addListener(poly, 'rightclick', this.handlePolyRightClick(poly));
 
+
     poly.setMap(this.map);
     poly.id = Date.now();
 
@@ -340,7 +363,7 @@ class Map extends Component {
   }
 
   submit = async () => {
-    const { polygons } = this.state;
+    const { polygons, barrierSize, personRadius } = this.state;
 
     const features = Object.values(polygons).reduce((acc, poly) => {
       if(poly) {
@@ -365,15 +388,26 @@ class Map extends Component {
 
     const request = {
       'features': features,
-      'properties': {},
+      'properties': {
+        barrierSize,
+        personRadius,
+      },
       'type': 'FeatureCollection',
     };
 
-    const people = await postPolygons(request);
-
-    this.setState({
-      people,
-    });
+    this.setState({ isLoading: true });
+    try {
+      const people = await postPolygons(request);
+      this.setState({
+        people,
+        isLoading: false,
+      });
+    }
+    catch (err) {
+      return this.setState({
+        error: err.message,
+      });
+    }
   }
 
   handleDrawerToggle = () => {
@@ -414,9 +448,15 @@ class Map extends Component {
     }
   }
 
+  handleInputChange = (name) => (e) => {
+    this.setState({
+      [name]: e.target.value,
+    });
+  }
+
   render() {
     const {
-      search, polygons, polygonsOpen, miniMenuOpen, action,
+      search, polygons, polygonsOpen, miniMenuOpen, action, error, personRadius, barrierSize,
     } = this.state;
 
 
@@ -428,6 +468,10 @@ class Map extends Component {
           {/* <TextField label='Humans' onChange={this.handleHumansInputChange} size="small" type="number" value={humans} variant="outlined" /> */}
           <Hidden xsDown>
             <Box className={style.actions}>
+              <TextField label='Social distance' min={0} onChange={this.handleInputChange('personRadius')} size="small" type="number" value={personRadius} variant="outlined" />
+              <TextField label='Barrier size' min={0} onChange={this.handleInputChange('barrierSize')} size="small" type="number" value={barrierSize} variant="outlined" />
+
+
               <ToggleButtonGroup exclusive onChange={this.handleActionChange} value={action}>
 
                 <ToggleButton value={ACTION_ADD}>
@@ -550,6 +594,15 @@ class Map extends Component {
                     Polygons
                   </Box>
                 </MenuItem>
+
+                <MenuItem variant="contained">
+                  <TextField label='Social distance' min={0} onChange={this.handleInputChange('personRadius')} size="small" type="number" value={personRadius} variant="outlined" />
+                </MenuItem>
+
+                <MenuItem variant="contained">
+                  <TextField label='Barrier size' min={0} onChange={this.handleInputChange('barrierSize')} size="small" type="number" value={barrierSize} variant="outlined" />
+                </MenuItem>
+
               </Menu>
             </Box>
           </Hidden>
@@ -578,7 +631,11 @@ class Map extends Component {
             })}
           </List>
         </Drawer>
-
+        <Snackbar autoHideDuration={3000} onClose={() => this.setState({ error: null })} open={!!error}>
+          <Alert elevation={6} onClose={() => this.setState({ error: null })} severity="error" variant="filled">
+            {error}
+          </Alert>
+        </Snackbar>
       </div>
     );
   }
