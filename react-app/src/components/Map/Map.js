@@ -145,6 +145,11 @@ class Map extends Component {
 
         this.map.data.setStyle(( ) => {
           return {
+            strokeColor: '#e3d29c',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#e3d29c',
+            fillOpacity: 0.2,
             icon: {
               url: Math.random() > .5 ? `${process.env.PUBLIC_URL}/img/male.svg` : `${process.env.PUBLIC_URL}/img/female.svg`,
               anchor: new maps.Point(5, 14),
