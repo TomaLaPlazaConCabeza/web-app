@@ -1,3 +1,4 @@
+import dataclasses
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -8,6 +9,8 @@ from descartes import PolygonPatch
 from shapely.coords import CoordinateSequence
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry import mapping as geojson_mapping
+
+from .exceptions import CoordSystemInconsistency, NotAPolygon, OutsideSupportedArea
 
 BLUE = "#6699cc"
 GRAY = "#999999"
@@ -50,9 +53,16 @@ BOUNDING_BOX_MAP = {
     ),
 }
 
-
 # maximum supported size is 15 hectares.
 MAX_SUPPORTED_SIZE = 1.5e5  # in m^2.
+
+
+@dataclasses.dataclass
+class CalculationResult:
+    n_humans: int
+    points: List[Point]
+    inner_polygon: Polygon
+    outer_polygon: Optional[Polygon] = None
 
 
 def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
@@ -63,11 +73,26 @@ def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
     """
     coordinates = feature.get("geometry", {}).get("coordinates", [])
     if not coordinates:
-        raise ValueError("No coordinates supplied")
+        raise NotAPolygon("No coordinates supplied")
     # geojson nests stuff even more.
     if len(coordinates[0]) < 3:
-        raise ValueError("Cannot construct a polygon with less than 3 tuples.")
+        raise NotAPolygon("Cannot construct a polygon with less than 3 tuples.")
     return Polygon(coordinates[0])
+
+
+def polygons_from_geojson_features(
+    main_polygon_feature: Dict[str, Any], hole_polygon_features: List[Dict[str, Any]]
+) -> List[Polygon]:
+    """Generate coordinate sequences from a main feature and hole features.
+
+    :param main_polygon_feature: the geojson feature that contains the main polygon.
+    :param hole_polygon_features: List of geojson features that contain hole polygons.
+    :return: list of coordinate sequences, the first is always the main feature,
+        all remaining are the holes
+    """
+    return [polygon_from_geosjon_feature(main_polygon_feature)] + [
+        polygon_from_geosjon_feature(f) for f in hole_polygon_features
+    ]
 
 
 def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
@@ -91,16 +116,69 @@ def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
             shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"].transform, polygon),
         )
 
-    raise ValueError("Could not convert to a meter-based coordinate system")
+    raise OutsideSupportedArea("Could not convert to a meter-based coordinate system")
+
+
+def multi_convert_to_meter_system(polygons: List[Polygon]) -> Tuple[str, List[Polygon]]:
+    """Convert mutiple polygons to a meter based system
+
+    :param polygons: polygons to be converted
+    :raises: CoordSystemInconsistency: when the individually
+        detected coordinate systems are different.
+    :raises: NotAPolygon, when items is < 1
+    :raises: OutsideSupportedArea, when any of the items is outside supported area.
+    :return: name of coordinate system used, converted polygons
+    """
+    if not polygons:
+        raise NotAPolygon("Must supply at least 1 item")
+
+    first_coord, first_conv = convert_wgs84_to_meter_system(polygons[0])
+
+    if len(polygons) == 1:
+        return first_coord, [first_conv]
+
+    other_coords, other_conv = [], []
+
+    for other_polygon in polygons[1:]:
+        other_co, other_cv = convert_wgs84_to_meter_system(other_polygon)
+        other_coords.append(other_co)
+        other_conv.append(other_cv)
+
+    if not all(o == first_coord for o in other_coords):
+        raise CoordSystemInconsistency("Detected multiple coordinate systems.")
+
+    all_conv = [first_conv] + other_conv
+
+    return first_coord, all_conv
+
+
+def create_composite_polygon(polygons: List[Polygon]):
+    """Create composite polygons out of a list of polygons.
+
+    :param polygons: Polygons. Must have at least one item.
+        All other items are considered to be holes.
+
+    :return: Composite polygon.
+    """
+    # Get the "bounding" polygon
+    bounding_poly = polygons[0]
+    # Get holes / obstacles
+    if len(polygons) > 1:
+        # Generate union of holes
+        holes = polygons[1:]
+        holes = shapely.ops.unary_union(holes)
+        bounding_poly = bounding_poly.difference(holes)
+    return bounding_poly
 
 
 def metered_points_to_geojson(
-    points: List[Point], coordinate_system: str
+    points: List[Point], coordinate_system: str, polygon_id: int
 ) -> List[Dict[str, Any]]:
     """List of metered points to geojson object
 
     :param points: list of points
     :param coordinate_system: coordinate system
+    :param: polygon id this point refers to.
     :return: geojson in WGS84.
     """
     return [
@@ -111,9 +189,24 @@ def metered_points_to_geojson(
                     REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, point
                 )
             ),
+            "properties": {"polygon_id": polygon_id, "type": "marker"},
         }
         for point in points
     ]
+
+
+def polygon_to_geojson(
+    polygon: Polygon, coordinate_system: str, polygon_id: int, inner=True
+):
+    return {
+        "type": "Feature",
+        "geometry": geojson_mapping(
+            shapely.ops.transform(
+                REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, polygon
+            )
+        ),
+        "properties": {"type": "inner" if inner else "outer", "polygon_id": polygon_id},
+    }
 
 
 def plot_line(ax, ob, color=BLUE):
@@ -213,7 +306,7 @@ def calculate(
     n_iters: int = 5000,
     social_distance: float = 1.5,
     buffer_zone_size: Optional[float] = None,
-) -> Tuple[int, List[Point]]:
+) -> CalculationResult:
     """Do the math
 
     :param polygon: Polygon with coordinates in meters.
@@ -224,17 +317,44 @@ def calculate(
     # If buffer zone is activated, generate buffer zone and substract it
     #  to initial polygon
     if buffer_zone_size is not None:
-        boundary = polygon.boundary.buffer(5)
-        polygon = polygon.difference(boundary)
+        outer_polygon = polygon.boundary.buffer(5)
+        inner_polygon = polygon.difference(outer_polygon)
+    else:
+        inner_polygon = polygon
+        outer_polygon = None
 
     # Random insertion of disks in polygon -- returns disks' centers coordinates
     # FIXME: guesstimate number of iters based on polygon area.
-    disk_centers = populate_square(polygon, iters=n_iters, r=social_distance)
+    disk_centers = populate_square(inner_polygon, iters=n_iters, r=social_distance)
 
     # Convert to disk polygons
     disks = [Point(i[0], i[1]) for i in disk_centers]
 
-    return len(disks), disks
+    return CalculationResult(len(disks), disks, inner_polygon, outer_polygon)
+
+
+def calc_result_to_serializable(
+    calc_result: CalculationResult, coord_system: str, polygon_id: int
+) -> Dict[str, Any]:
+    points = metered_points_to_geojson(calc_result.points, coord_system, polygon_id)
+    inner_boundary = polygon_to_geojson(
+        calc_result.inner_polygon, coord_system, polygon_id
+    )
+
+    features = points + [inner_boundary]
+
+    if calc_result.outer_polygon is not None:
+        features.append(
+            polygon_to_geojson(
+                calc_result.outer_polygon, coord_system, polygon_id, inner=False
+            )
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "properties": {"n_humans": calc_result.n_humans},
+    }
 
 
 if __name__ == "__main__":
