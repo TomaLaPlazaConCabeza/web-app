@@ -292,12 +292,13 @@ def random_disk_insertion(
 def populate_square(
     polygon: Polygon, iters: int = 1000, r: float = 1.0, fudge_factor: int = 2,
 ) -> np.ndarray:
-    """Function to populate a polygon "ob" with disks of radius "r".
+    """Function to populate a polygon "polygon" with disks of radius "r".
     It performs "iters" attemps of disk insertion.
     It returns an array of the coordinates of the inserted disk centers.
 
     :returns: numpy nx2-array of floats.
     """
+
     # Define array of points
     minx, miny, maxx, maxy = polygon.bounds
     n_random = iters * fudge_factor
@@ -339,8 +340,9 @@ def calculate(
         inner_polygon = polygon
         outer_polygon = None
 
+    # Estimate n_iters
+    n_iters = min(20 * (polygon.area / (social_distance * social_distance)), 50000)
     # Random insertion of disks in polygon -- returns disks' centers coordinates
-    # FIXME: guesstimate number of iters based on polygon area.
     disk_centers = populate_square(inner_polygon, iters=n_iters, r=social_distance)
 
     # Convert to disk polygons
