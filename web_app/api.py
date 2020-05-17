@@ -89,8 +89,10 @@ def calculate_endpoint():
         if item.get("geometry", {}).get("type") == "Polygon"
     ]
 
-    barrier_size: float = body.get("properties", {}).get("barrierSize", 0)
-    social_distance_radius: float = body.get("properties", {}).get("personRadius", 1.5)
+    barrier_size: float = float(body.get("properties", {}).get("barrierSize", 0))
+    social_distance_radius: float = float(
+        body.get("properties", {}).get("personRadius", 1.5)
+    )
 
     if not all_polygons:
         return flask.jsonify(
