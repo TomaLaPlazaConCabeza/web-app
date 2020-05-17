@@ -91,12 +91,13 @@ def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
 
 
 def metered_points_to_geojson(
-    points: List[Point], coordinate_system: str
+    points: List[Point], coordinate_system: str, polygon_id: int
 ) -> List[Dict[str, Any]]:
     """List of metered points to geojson object
 
     :param points: list of points
     :param coordinate_system: coordinate system
+    :param: polygon id this point refers to.
     :return: geojson in WGS84.
     """
     return [
@@ -107,6 +108,7 @@ def metered_points_to_geojson(
                     REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, point
                 )
             ),
+            "properties": {"polygon_id": polygon_id, "type": "marker"},
         }
         for point in points
     ]

@@ -89,14 +89,29 @@ def calculate_endpoint():
         points = []
         n_humans = 0
     else:
+        main_polygons = [
+            polygon
+            for polygon in all_polygons
+            if not polygon.get("properties", {}).get("hole", False)
+        ]
+        hole_polygons = [
+            polygon
+            for polygon in all_polygons
+            if polygon.get("properties", {}).get("hole", False)
+        ]
+
+        print(hole_polygons)
+
         # FIXME: only taking first one for now
         try:
-            polygon = polygon_from_geosjon_feature(all_polygons[0])
+            main_polygon = polygon_from_geosjon_feature(main_polygons[0])
         except ValueError:
             flask.abort(400, "Polygon contains too little items to compute.")
 
+        polygon_id: int = main_polygons[0].get("properties", {}).get("id", 0)
+
         try:
-            coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
+            coord_system, metered_polygon = convert_wgs84_to_meter_system(main_polygon)
         except ValueError:
             flask.abort(400, "Could not convert to a meter-based coordinate system.")
 
@@ -104,7 +119,7 @@ def calculate_endpoint():
         n_humans, raw_points = calculate(
             correct_line_intersection(metered_polygon.exterior.coords)
         )
-        points = metered_points_to_geojson(raw_points, coord_system)
+        points = metered_points_to_geojson(raw_points, coord_system, polygon_id)
 
     return flask.jsonify(
         {
