@@ -1,3 +1,4 @@
+import dataclasses
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -51,6 +52,14 @@ BOUNDING_BOX_MAP = {
         [(-21.73, 24.6), (-21.73, 32.76), (-11.75, 32.76), (-11.75, 24.6)]
     ),
 }
+
+
+@dataclasses.dataclass
+class CalculationResult:
+    n_humans: int
+    points: List[Point]
+    inner_polygon: Polygon
+    outer_polygon: Optional[Polygon] = None
 
 
 def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
@@ -183,6 +192,20 @@ def metered_points_to_geojson(
     ]
 
 
+def polygon_to_geojson(
+    polygon: Polygon, coordinate_system: str, polygon_id: int, inner=True
+):
+    return {
+        "type": "Feature",
+        "geometry": geojson_mapping(
+            shapely.ops.transform(
+                REVERSE_TRANSFORMER_MAPPING[coordinate_system].transform, polygon
+            )
+        ),
+        "properties": {"type": "inner" if inner else "outer", "polygon_id": polygon_id},
+    }
+
+
 def plot_line(ax, ob, color=BLUE):
     """Function to plot Shapely line object"""
     # Get objects x and y boundary as line
@@ -280,7 +303,7 @@ def calculate(
     n_iters: int = 5000,
     social_distance: float = 1.5,
     buffer_zone_size: Optional[float] = None,
-) -> Tuple[int, List[Point]]:
+) -> CalculationResult:
     """Do the math
 
     :param polygon: Polygon with coordinates in meters.
@@ -291,17 +314,44 @@ def calculate(
     # If buffer zone is activated, generate buffer zone and substract it
     #  to initial polygon
     if buffer_zone_size is not None:
-        boundary = polygon.boundary.buffer(5)
-        polygon = polygon.difference(boundary)
+        outer_polygon = polygon.boundary.buffer(5)
+        inner_polygon = polygon.difference(outer_polygon)
+    else:
+        inner_polygon = polygon
+        outer_polygon = None
 
     # Random insertion of disks in polygon -- returns disks' centers coordinates
     # FIXME: guesstimate number of iters based on polygon area.
-    disk_centers = populate_square(polygon, iters=n_iters, r=social_distance)
+    disk_centers = populate_square(inner_polygon, iters=n_iters, r=social_distance)
 
     # Convert to disk polygons
     disks = [Point(i[0], i[1]) for i in disk_centers]
 
-    return len(disks), disks
+    return CalculationResult(len(disks), disks, inner_polygon, outer_polygon)
+
+
+def calc_result_to_serializable(
+    calc_result: CalculationResult, coord_system: str, polygon_id: int
+) -> Dict[str, Any]:
+    points = metered_points_to_geojson(calc_result.points, coord_system, polygon_id)
+    inner_boundary = polygon_to_geojson(
+        calc_result.inner_polygon, coord_system, polygon_id
+    )
+
+    features = points + [inner_boundary]
+
+    if calc_result.outer_polygon is not None:
+        features.append(
+            polygon_to_geojson(
+                calc_result.outer_polygon, coord_system, polygon_id, inner=False
+            )
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "properties": {"n_humans": calc_result.n_humans},
+    }
 
 
 if __name__ == "__main__":

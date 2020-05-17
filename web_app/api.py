@@ -45,13 +45,14 @@ Example input to calculate endpoint:
     ]
 }
 """
+
 import flask
 
 from .algorithm import (
+    calc_result_to_serializable,
     calculate,
     correct_line_intersection,
     create_composite_polygon,
-    metered_points_to_geojson,
     multi_convert_to_meter_system,
     polygons_from_geojson_features,
 )
@@ -88,53 +89,50 @@ def calculate_endpoint():
     ]
 
     if not all_polygons:
-        points = []
-        n_humans = 0
-    else:
-        main_polygons = [
-            polygon
-            for polygon in all_polygons
-            if not polygon.get("properties", {}).get("hole", False)
-        ]
-        hole_polygons = [
-            polygon
-            for polygon in all_polygons
-            if polygon.get("properties", {}).get("hole", False)
-        ]
+        return flask.jsonify(
+            {
+                "type": "FeatureCollection",
+                "features": [],
+                "properties": {"n_humans": 0},
+            }
+        )
 
-        # FIXME: only taking first one for now
-        try:
-            shapely_polygons = polygons_from_geojson_features(
-                main_polygons[0], hole_polygons
-            )
-        except NotAPolygon:
-            flask.abort(400, "Polygon contains too little items to compute.")
+    main_polygons = [
+        polygon
+        for polygon in all_polygons
+        if not polygon.get("properties", {}).get("hole", False)
+    ]
+    hole_polygons = [
+        polygon
+        for polygon in all_polygons
+        if polygon.get("properties", {}).get("hole", False)
+    ]
 
-        polygon_id: int = main_polygons[0].get("properties", {}).get("id", 0)
+    # FIXME: only taking first one for now
+    try:
+        shapely_polygons = polygons_from_geojson_features(
+            main_polygons[0], hole_polygons
+        )
+    except NotAPolygon:
+        flask.abort(400, "Polygon contains too little items to compute.")
 
-        try:
-            coord_system, metered_polygons = multi_convert_to_meter_system(
-                shapely_polygons
-            )
-        except OutsideSupportedArea:
-            flask.abort(400, "Could not convert to a meter-based coordinate system.")
-        except CoordSystemInconsistency:
-            flask.abort(400, "Obstacles were too far from the main area.")
+    polygon_id: int = main_polygons[0].get("properties", {}).get("id", 0)
 
-        cleaned_polygons = [
-            correct_line_intersection(metered_polygon.exterior.coords)
-            for metered_polygon in metered_polygons
-        ]
-        composite_polygon = create_composite_polygon(cleaned_polygons)
+    try:
+        coord_system, metered_polygons = multi_convert_to_meter_system(shapely_polygons)
+    except OutsideSupportedArea:
+        flask.abort(400, "Could not convert to a meter-based coordinate system.")
+    except CoordSystemInconsistency:
+        flask.abort(400, "Obstacles were too far from the main area.")
 
-        # fix for weird self-intersections
-        n_humans, raw_points = calculate(composite_polygon)
-        points = metered_points_to_geojson(raw_points, coord_system, polygon_id)
+    cleaned_polygons = [
+        correct_line_intersection(metered_polygon.exterior.coords)
+        for metered_polygon in metered_polygons
+    ]
+    composite_polygon = create_composite_polygon(cleaned_polygons)
 
-    return flask.jsonify(
-        {
-            "type": "FeatureCollection",
-            "features": points,
-            "properties": {"n_humans": n_humans},
-        }
-    )
+    calc_result = calculate(composite_polygon)
+
+    serializer = calc_result_to_serializable(calc_result, coord_system, polygon_id)
+
+    return flask.jsonify(serializer)
