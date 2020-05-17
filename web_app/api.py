@@ -94,7 +94,12 @@ def calculate_endpoint():
             polygon = polygon_from_geosjon_feature(all_polygons[0])
         except ValueError:
             flask.abort(400, "Polygon contains too little items to compute.")
-        coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
+
+        try:
+            coord_system, metered_polygon = convert_wgs84_to_meter_system(polygon)
+        except ValueError:
+            flask.abort(400, "Could not convert to a meter-based coordinate system.")
+
         # fix for weird self-intersections
         n_humans, raw_points = calculate(
             correct_line_intersection(metered_polygon.exterior.coords)
