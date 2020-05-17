@@ -82,7 +82,7 @@ class Map extends Component {
       search: '',
       action: ACTION_ADD,
       error: null,
-      personRadius: 2,
+      personRadius: 1.2,
       barrierSize: 0,
     };
 
