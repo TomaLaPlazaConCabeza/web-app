@@ -7,9 +7,7 @@ class MapPage extends Component {
 
   render() {
     return (
-      <Box>
-        <Map />
-      </Box>
+      <Map />
     );
   }
 

@@ -7,7 +7,7 @@ class Header extends PureComponent {
 
   render() {
     return (
-      <AppBar className={style.wrapper} position="static" >
+      <AppBar className={style.wrapper} position="sticky" >
         <p>Reconquer your squares - with your brain</p>
       </AppBar>
     );

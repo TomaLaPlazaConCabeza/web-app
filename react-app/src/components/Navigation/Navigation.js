@@ -6,6 +6,7 @@ import { faHome, faMap, faQuestion } from '@fortawesome/free-solid-svg-icons';
 
 import { HOME_ROUTE, MAP_ROUTE, ABOUT_ROUTE } from '../../constants/routes';
 
+import style from './Navigation.module.scss';
 
 class Navigation extends Component {
 
@@ -16,7 +17,7 @@ class Navigation extends Component {
 
   render() {
     return (
-      <AppBar position="static">
+      <AppBar className={style.wrapper} position="fixed">
         <BottomNavigation onChange={this.handleChange}>
           <BottomNavigationAction icon={<FontAwesomeIcon icon={faHome} size='2x' />} label="Home" value={HOME_ROUTE} />
           <BottomNavigationAction icon={<FontAwesomeIcon icon={faMap} size='2x' />} label="Map" value={MAP_ROUTE} />
