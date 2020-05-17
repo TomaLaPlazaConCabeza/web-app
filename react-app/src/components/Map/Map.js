@@ -167,7 +167,9 @@ class Map extends Component {
               zIndex: 2,
               icon: {
                 url: Math.random() > .5 ? `${process.env.PUBLIC_URL}/img/male.svg` : `${process.env.PUBLIC_URL}/img/female.svg`,
-                anchor: new maps.Point(4, 15),
+                // anchor: new maps.Point(4, 15),
+                // size: new maps.Size(8, 15),
+                sizeScale: new maps.Size(8, 16),
               },
             };
           }
