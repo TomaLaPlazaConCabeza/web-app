@@ -211,6 +211,7 @@ class Map extends Component {
       const intersectsWidth = Object.values(polygons).filter((p) => {
         return p.getBounds().intersects(bounds);
       });
+
       intersectsWidth.forEach((p) => {
         p.setPaths([
           ...p.getPaths().getArray(),
@@ -343,16 +344,20 @@ class Map extends Component {
 
     const features = Object.values(polygons).reduce((acc, poly) => {
       if(poly) {
-        const coordinates = [ poly.getPath().getArray().map((p) => [ p.lng(), p.lat() ]) ];
-        acc.push({
-          'type': 'Feature',
-          'geometry': {
-            'type': 'Polygon',
-            coordinates,
-          },
-          'properties': {
-            id: poly.id,
-          },
+        poly.getPaths().getArray().forEach((shape, i) => {
+          const coordinates = [ shape.getArray().map((p) => [ p.lng(), p.lat() ]) ];
+
+          acc.push({
+            'type': 'Feature',
+            'geometry': {
+              'type': 'Polygon',
+              coordinates,
+            },
+            'properties': {
+              id: poly.id,
+              hole: !!i,
+            },
+          });
         });
       }
       return acc;
@@ -365,8 +370,6 @@ class Map extends Component {
     };
 
     const people = await postPolygons(request);
-
-    this.historyPush = true;
 
     this.setState({
       people,
@@ -413,9 +416,8 @@ class Map extends Component {
 
   render() {
     const {
-      search, polygons, polygonsOpen, miniMenuOpen, people, action,
+      search, polygons, polygonsOpen, miniMenuOpen, action,
     } = this.state;
-
 
 
     return (

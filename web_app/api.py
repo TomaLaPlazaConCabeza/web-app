@@ -49,6 +49,7 @@ Example input to calculate endpoint:
 import flask
 
 from .algorithm import (
+    MAX_SUPPORTED_SIZE,
     calc_result_to_serializable,
     calculate,
     correct_line_intersection,
@@ -114,14 +115,20 @@ def calculate_endpoint():
             main_polygons[0], hole_polygons
         )
     except NotAPolygon:
-        flask.abort(400, "Polygon contains too little items to compute.")
+        flask.abort(400, "You have drawn too few points.")
 
     polygon_id: int = main_polygons[0].get("properties", {}).get("id", 0)
 
     try:
         coord_system, metered_polygons = multi_convert_to_meter_system(shapely_polygons)
     except OutsideSupportedArea:
-        flask.abort(400, "Could not convert to a meter-based coordinate system.")
+        flask.abort(
+            400,
+            (
+                "Your location unfortunately resides outside "
+                "supported area (most of Europe & Canary Islands)."
+            ),
+        )
     except CoordSystemInconsistency:
         flask.abort(400, "Obstacles were too far from the main area.")
 
@@ -130,6 +137,10 @@ def calculate_endpoint():
         for metered_polygon in metered_polygons
     ]
     composite_polygon = create_composite_polygon(cleaned_polygons)
+    if composite_polygon.area > MAX_SUPPORTED_SIZE:
+        flask.abort(
+            400, "Your submitted area is larger than the maximum supported area."
+        )
 
     calc_result = calculate(composite_polygon)
 

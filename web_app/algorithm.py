@@ -53,6 +53,9 @@ BOUNDING_BOX_MAP = {
     ),
 }
 
+# maximum supported size is 15 hectares.
+MAX_SUPPORTED_SIZE = 1.5e5  # in m^2.
+
 
 @dataclasses.dataclass
 class CalculationResult:
