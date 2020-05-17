@@ -151,7 +151,7 @@ def correct_line_intersection(coords: CoordinateSequence) -> Polygon:
     list_polygons = bbox.difference(polyline_buffer)
 
     # Valid polygon is the one with highest intersection area with original polygon
-    polygon = max(list_polygons, key=lambda a: a.intersect(Polygon(polyline)).area)
+    polygon = max(list_polygons, key=lambda a: a.intersection(Polygon(polyline)).area)
 
     return polygon
 
