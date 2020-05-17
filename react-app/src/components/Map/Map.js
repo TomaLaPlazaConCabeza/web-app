@@ -63,11 +63,11 @@ class Map extends Component {
 
   static defaultProps = {
     polygonOptions: {
-      strokeColor: '#FF0000',
+      strokeColor: '#acdba3',
       strokeOpacity: 0.8,
       strokeWeight: 2,
-      fillColor: '#FF0000',
-      fillOpacity: 0.35,
+      fillColor: '#acdba3',
+      fillOpacity: 0.2,
       editable: true,
       draggable: true,
       zIndes: 1,
