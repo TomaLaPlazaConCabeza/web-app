@@ -26,9 +26,16 @@
     flex: 1;
     // min-height: 500px;
     height: 100%;
+    display: -webkit-flex;
+    display: -ms-flex;
+    display: flex;
+    flex-direction: column;
+    position: relative;
 
+    > div > div,
     > div {
       height: 100%;
+      flex: 1;
     }
   }
 
@@ -62,5 +69,19 @@
 .menuOption {
   svg {
     margin-right: 10px;
+  }
+}
+
+.overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  //
+  canvas {
+    width: 100%;
+    height: 100%;
   }
 }
