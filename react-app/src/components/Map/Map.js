@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faDrawPolygon, faList, faBars, faCheck, faTrash, faPlus, faMinus, faUndo, faRedo } from '@fortawesome/free-solid-svg-icons';
 import { cloneDeep } from 'lodash';
 import { ToggleButtonGroup, ToggleButton, Alert } from '@material-ui/lab';
+import * as gh from 'greiner-hormann';
 
 import {
   Box,
@@ -41,6 +42,21 @@ const flattenPolygon = (p) => {
     return acc;
   }, []);
 };
+
+function isClockwise(path) {
+  const poly = path.getArray().map((p) => [ p.lng(), p.lat() ]);
+  var sum = 0;
+  for(var i = 0; i < poly.length - 1; i++) {
+    var cur = poly[i],
+      next = poly[i + 1];
+    sum += (next[0] - cur[0]) * (next[1] + cur[1]);
+  }
+  if(sum > 0) {
+    return true;
+  } else if(sum < 0) {
+    return false;
+  }
+}
 
 
 class Map extends Component {
@@ -227,18 +243,34 @@ class Map extends Component {
       });
     }
 
+
+
     if(action === ACTION_REMOVE) {
+      if(isClockwise(poly.getPath())) {
+        poly.setPath(poly.getPath().getArray().reverse());
+      }
       const bounds = poly.getBounds();
       const polygons = cloneDeep(this.state.polygons);
       const intersectsWidth = Object.values(polygons).filter((p) => {
         return p.getBounds().intersects(bounds);
       });
 
+      const path0 = poly.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
       intersectsWidth.forEach((p) => {
-        p.setPaths([
-          ...p.getPaths().getArray(),
-          flattenPolygon(poly.getPaths().getArray()).reverse(),
-        ]);
+        const path1 = p.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
+
+        const paths = gh.diff(path1, path0).map((path) => path.map(([ lng, lat ]) => ({ lng, lat })));
+        if(paths.length === 1) {
+          const a = p.getPaths().getArray();
+          a[0] = paths[0];
+          p.setPaths(a);
+        }
+        else {
+          p.setPaths([
+            ...p.getPaths().getArray(),
+            flattenPolygon(poly.getPaths().getArray()),
+          ]);
+        }
       });
 
       this.setState({ polygons });
@@ -246,16 +278,22 @@ class Map extends Component {
     }
 
     if(action === ACTION_ADD) {
+      if(!isClockwise(poly.getPath())) {
+        poly.setPath(poly.getPath().getArray().reverse());
+      }
       const bounds = poly.getBounds();
       const intersectsWidth = Object.values(this.state.polygons).filter((p) => {
         return p.getBounds().intersects(bounds);
       });
       if(intersectsWidth.length) {
+        const path0 = poly.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
         intersectsWidth.forEach((p) => {
-          p.setPaths([
-            ...p.getPaths().getArray(),
-            flattenPolygon(poly.getPaths().getArray()),
-          ]);
+          const path1 = p.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
+
+          const paths = gh.union(path1, path0).map((path) => path.map(([ lng, lat ]) => ({ lng, lat })));
+          const a = p.getPaths().getArray();
+          a[0] = paths[0];
+          p.setPaths(a);
         });
 
         this.setState(({ polygons }) => ({
