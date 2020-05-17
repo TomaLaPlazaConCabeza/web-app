@@ -1,5 +1,4 @@
 import dataclasses
-import random
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -256,18 +255,6 @@ def correct_line_intersection(coords: CoordinateSequence) -> Polygon:
     polygon = max(list_polygons, key=lambda a: a.intersection(Polygon(polyline)).area)
 
     return polygon
-
-
-def generate_random(
-    minx: float, miny: float, maxx: float, maxy: float, polygon: Polygon
-) -> Point:
-    """Generate a random point inside a polygon."""
-    # Create a random point inside a square defined by the cartesian boundaries
-    pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
-    # Check for point being inside polygon. If not, generate another random point
-    while not polygon.contains(pnt):
-        pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
-    return pnt
 
 
 def random_disk_insertion(
