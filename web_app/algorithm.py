@@ -333,7 +333,7 @@ def calculate(
     # If buffer zone is activated, generate buffer zone and substract it
     #  to initial polygon
     if buffer_zone_size is not None:
-        outer_polygon = polygon.boundary.buffer(5)
+        outer_polygon = polygon.boundary.buffer(buffer_zone_size)
         inner_polygon = polygon.difference(outer_polygon)
     else:
         inner_polygon = polygon
