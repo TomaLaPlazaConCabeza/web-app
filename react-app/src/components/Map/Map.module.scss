@@ -38,11 +38,15 @@
     display: flex;
     justify-content: space-between;
     padding-bottom: 5px;
+    margin-left: -3px;
+    margin-right: -3px;
 
     > div {
       display: -webkit-flex;
       display: -ms-flex;
       display: flex;
+      margin-left: 3px;
+      margin-right: 3px;
     }
   }
 }
