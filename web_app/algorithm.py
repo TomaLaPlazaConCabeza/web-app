@@ -5,6 +5,7 @@ import numpy as np
 import pyproj
 import shapely.ops
 import shapely.speedups
+import shapely.vectorized
 from descartes import PolygonPatch
 from shapely.coords import CoordinateSequence
 from shapely.geometry import LineString, Point, Polygon, box
@@ -252,7 +253,9 @@ def correct_line_intersection(coords: CoordinateSequence) -> Polygon:
     list_polygons = bbox.difference(polyline_buffer)
 
     # Valid polygon is the one with highest intersection area with original polygon
-    polygon = max(list_polygons, key=lambda a: a.intersection(Polygon(polyline)).area)
+    polygon = max(
+        list_polygons, key=lambda a: a.intersection(Polygon(polyline).buffer(0)).area
+    )
 
     return polygon
 
@@ -271,6 +274,7 @@ def random_disk_insertion(
     :return:
     """
     accept = 1
+    r_square = r ** 2
     for i in range(min(n_iter, filtered.shape[0])):
         #  Generate random point inside ob
         pts_temp = filtered[i, :]
@@ -278,7 +282,7 @@ def random_disk_insertion(
         #  between pts_temp and all existing points in pts array
         pts_diff = pts[:accept] - pts_temp
         # Perform overlap boolean check with all existing points in pts array
-        euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
+        euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r_square
         # euclid_bool = random_disk_insertion(pts_diff, r)
         # Check that pts_temp doesn't overlap with any other
         if np.all(euclid_bool):
@@ -306,11 +310,7 @@ def populate_square(
     random_arr_y = np.random.uniform(miny, maxy, n_random)
     random_arr = np.stack([random_arr_x, random_arr_y], axis=1)
 
-    # TOOD: somehow make this listy thingy more vectorized.
-    def mask_func(x):
-        return polygon.contains(Point(x))
-
-    mask = np.apply_along_axis(mask_func, axis=1, arr=random_arr)
+    mask = shapely.vectorized.contains(polygon, random_arr_x, random_arr_y)
 
     filtered = random_arr[mask, :]
     pts = np.zeros(shape=filtered.shape)
@@ -320,7 +320,6 @@ def populate_square(
 
 def calculate(
     polygon: Polygon,
-    n_iters: int = 5000,
     social_distance: float = 1.5,
     buffer_zone_size: Optional[float] = None,
 ) -> CalculationResult:
@@ -341,7 +340,9 @@ def calculate(
         outer_polygon = None
 
     # Estimate n_iters
-    n_iters = min(20 * (polygon.area / (social_distance * social_distance)), 50000)
+    n_iters = round(
+        min(20 * (inner_polygon.area / (social_distance * social_distance)), 500000)
+    )
     # Random insertion of disks in polygon -- returns disks' centers coordinates
     disk_centers = populate_square(inner_polygon, iters=n_iters, r=social_distance)
 
