@@ -33,7 +33,7 @@ import numpy as np
 import matplotlib.pylab as plt
 import random
 from typing import Any, Dict, List, Optional, Tuple
-
+import matplotlib
 import numpy as np
 import pyproj
 import shapely.ops
@@ -152,7 +152,7 @@ def computeForce(mass, vels, temp, visc, dt, radius2,pos):
             dr=pos[i]-pos[j] #calculates the vector between the positions
             mag=np.linalg.norm(dr)
             if mag<radius2*2:
-                wcaf=-24*0.0001*Boltzmann*(2*((radius2*2/mag)**12)-((radius2*2/mag)**6))*dr/(mag**2) #inclusion of the dr makes it a vector breaks it up between the components.
+                wcaf=-24*1*Boltzmann*(2*((radius2*2/mag)**12)-((radius2*2/mag)**6))*dr/(mag**2) #inclusion of the dr makes it a vector breaks it up between the components.
                 wca[i]=wca[i]+wcaf #forces in opposite directions
                 wca[j]=wca[i]-wcaf
            
@@ -269,11 +269,13 @@ if __name__ == '__main__':
             
             
             
-     
-    plt.scatter(output[:69,0],output[:69,1])
-    plt.scatter(output[69:2*69,0],output[:69,1])
+    plt.figure(2)
+    axes = plt.gca()
     axes.set_xlim([params["box"][0][0],params["box"][0][1]])
     axes.set_ylim([params["box"][1][0],params["box"][1][1]])
+    for i in range(params["natoms"]*30,params["natoms"]*31):
+        circle1=plt.Circle((output[i,0],output[i,1]), radius=20e-9)
+        axes.add_artist(circle1)
                           
     
 
