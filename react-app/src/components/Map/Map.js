@@ -143,7 +143,10 @@ class Map extends Component {
       if(ts.people) {
         this.map.data.addGeoJson(ts.people);
 
-        this.map.data.setStyle(( ) => {
+        const colors = [ '#d2bda6', '#b99d7e', '#88705c', '#654732' ];
+
+        this.map.data.setStyle(( feature ) => {
+          const iconColor = colors[Math.floor(Math.random() * colors.length)];
           return {
             strokeColor: '#e3d29c',
             strokeOpacity: 0.8,
@@ -151,8 +154,16 @@ class Map extends Component {
             fillColor: '#e3d29c',
             fillOpacity: 0.2,
             icon: {
+              path: Math.random() > .5
+                ? 'M128 0c35.346 0 64 28.654 64 64s-28.654 64-64 64c-35.346 0-64-28.654-64-64S92.654 0 128 0m119.283 354.179l-48-192A24 24 0 0 0 176 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H80a24 24 0 0 0-23.283 18.179l-48 192C4.935 369.305 16.383 384 32 384h56v104c0 13.255 10.745 24 24 24h32c13.255 0 24-10.745 24-24V384h56c15.591 0 27.071-14.671 23.283-29.821z'
+                : 'M96 0c35.346 0 64 28.654 64 64s-28.654 64-64 64-64-28.654-64-64S60.654 0 96 0m48 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H48c-26.51 0-48 21.49-48 48v136c0 13.255 10.745 24 24 24h16v136c0 13.255 10.745 24 24 24h64c13.255 0 24-10.745 24-24V352h16c13.255 0 24-10.745 24-24V192c0-26.51-21.49-48-48-48z',
+              scale: 15 / 512 * ( .9 + (Math.random() * .2)),
+              fillColor: iconColor,
+              strokeColor: iconColor,
+              fillOpacity: 1,
+              strokeOpacity: 1,
               url: Math.random() > .5 ? `${process.env.PUBLIC_URL}/img/male.svg` : `${process.env.PUBLIC_URL}/img/female.svg`,
-              anchor: new maps.Point(5, 14),
+              anchor: new maps.Point(128, 512),
             },
           };
         });
@@ -283,14 +294,14 @@ class Map extends Component {
     }
 
     if(action === ACTION_ADD) {
-      if(!isClockwise(poly.getPath())) {
-        poly.setPath(poly.getPath().getArray().reverse());
-      }
       const bounds = poly.getBounds();
       const intersectsWidth = Object.values(this.state.polygons).filter((p) => {
         return p.getBounds().intersects(bounds);
       });
       if(intersectsWidth.length) {
+        if(!isClockwise(poly.getPath())) {
+          poly.setPath(poly.getPath().getArray().reverse());
+        }
         const path0 = poly.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
         intersectsWidth.forEach((p) => {
           const path1 = p.getPath().getArray().map((p) => [ p.lng(), p.lat() ]);
@@ -499,13 +510,13 @@ class Map extends Component {
 
   render() {
     const {
-      search, polygons, polygonsOpen, miniMenuOpen, action, error, personRadius, barrierSize,
+      search, polygons, polygonsOpen, miniMenuOpen, action, error, personRadius, barrierSize, people,
     } = this.state;
 
 
     return (
       <div className={style.wrapper} ref={(ref) => (this.containerRef = ref)}>
-        <div className={style.toolbar}>
+        <Box className={style.toolbar}>
           <TextField label='Search' onChange={this.handleSearchInputChange} ref={(ref) => (this.searchRef = ref)} size="small" type="text" value={search} variant="outlined" />
 
           {/* <TextField label='Humans' onChange={this.handleHumansInputChange} size="small" type="number" value={humans} variant="outlined" /> */}
@@ -650,30 +661,32 @@ class Map extends Component {
             </Box>
           </Hidden>
 
-        </div>
-        <Paper className={style.map} ref={(ref) => (this.mapRef = ref)} />
+          <Drawer
+            anchor='right'
+            onClose={this.handleDrawerToggle}
+            open={polygonsOpen}
+          >
+            <List className={style.polygonsList}>
+              {!Object.values(polygons).length && <ListItem ><ListItemText>No polygons</ListItemText></ListItem>}
+              {Object.values(polygons).map((poly, i) => {
+                return (
+                  <ListItem button dense key={i} onClick={() => this.handlePolygonListClick(poly)}>
+                    <ListItemText primary={`Polygon ${i + 1}`} />
+                    <ListItemSecondaryAction onClick={() => this.deletePoly(poly)}>
+                      <IconButton>
+                        <FontAwesomeIcon icon={faTrash} size='xs' />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                );
+              })}
+            </List>
+          </Drawer>
 
-        <Drawer
-          anchor='right'
-          onClose={this.handleDrawerToggle}
-          open={polygonsOpen}
-        >
-          <List className={style.polygonsList}>
-            {!Object.values(polygons).length && <ListItem ><ListItemText>No polygons</ListItemText></ListItem>}
-            {Object.values(polygons).map((poly, i) => {
-              return (
-                <ListItem button dense key={i} onClick={() => this.handlePolygonListClick(poly)}>
-                  <ListItemText primary={`Polygon ${i + 1}`} />
-                  <ListItemSecondaryAction onClick={() => this.deletePoly(poly)}>
-                    <IconButton>
-                      <FontAwesomeIcon icon={faTrash} size='xs' />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              );
-            })}
-          </List>
-        </Drawer>
+        </Box>
+        <Paper className={style.map} >
+          <div ref={(ref) => (this.mapRef = ref)} />
+        </Paper>
         <Snackbar autoHideDuration={3000} onClose={() => this.setState({ error: null })} open={!!error}>
           <Alert elevation={6} onClose={() => this.setState({ error: null })} severity="error" variant="filled">
             {error}
