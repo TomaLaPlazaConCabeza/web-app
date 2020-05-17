@@ -9,6 +9,8 @@ from shapely.coords import CoordinateSequence
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry import mapping as geojson_mapping
 
+from .exceptions import CoordSystemInconsistency, NotAPolygon, OutsideSupportedArea
+
 BLUE = "#6699cc"
 GRAY = "#999999"
 RED = "#8B0000"
@@ -59,11 +61,26 @@ def polygon_from_geosjon_feature(feature: Dict[str, Any]) -> Polygon:
     """
     coordinates = feature.get("geometry", {}).get("coordinates", [])
     if not coordinates:
-        raise ValueError("No coordinates supplied")
+        raise NotAPolygon("No coordinates supplied")
     # geojson nests stuff even more.
     if len(coordinates[0]) < 3:
-        raise ValueError("Cannot construct a polygon with less than 3 tuples.")
+        raise NotAPolygon("Cannot construct a polygon with less than 3 tuples.")
     return Polygon(coordinates[0])
+
+
+def polygons_from_geojson_features(
+    main_polygon_feature: Dict[str, Any], hole_polygon_features: List[Dict[str, Any]]
+) -> List[Polygon]:
+    """Generate coordinate sequences from a main feature and hole features.
+
+    :param main_polygon_feature: the geojson feature that contains the main polygon.
+    :param hole_polygon_features: List of geojson features that contain hole polygons.
+    :return: list of coordinate sequences, the first is always the main feature,
+        all remaining are the holes
+    """
+    return [polygon_from_geosjon_feature(main_polygon_feature)] + [
+        polygon_from_geosjon_feature(f) for f in hole_polygon_features
+    ]
 
 
 def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
@@ -87,7 +104,59 @@ def convert_wgs84_to_meter_system(polygon: Polygon) -> Tuple[str, Polygon]:
             shapely.ops.transform(TRANSFORMER_MAPPING["epsg:3035"].transform, polygon),
         )
 
-    raise ValueError("Could not convert to a meter-based coordinate system")
+    raise OutsideSupportedArea("Could not convert to a meter-based coordinate system")
+
+
+def multi_convert_to_meter_system(polygons: List[Polygon]) -> Tuple[str, List[Polygon]]:
+    """Convert mutiple polygons to a meter based system
+
+    :param polygons: polygons to be converted
+    :raises: CoordSystemInconsistency: when the individually
+        detected coordinate systems are different.
+    :raises: NotAPolygon, when items is < 1
+    :raises: OutsideSupportedArea, when any of the items is outside supported area.
+    :return: name of coordinate system used, converted polygons
+    """
+    if not polygons:
+        raise NotAPolygon("Must supply at least 1 item")
+
+    first_coord, first_conv = convert_wgs84_to_meter_system(polygons[0])
+
+    if len(polygons) == 1:
+        return first_coord, [first_conv]
+
+    other_coords, other_conv = [], []
+
+    for other_polygon in polygons[1:]:
+        other_co, other_cv = convert_wgs84_to_meter_system(other_polygon)
+        other_coords.append(other_co)
+        other_conv.append(other_cv)
+
+    if not all(o == first_coord for o in other_coords):
+        raise CoordSystemInconsistency("Detected multiple coordinate systems.")
+
+    all_conv = [first_conv] + other_conv
+
+    return first_coord, all_conv
+
+
+def create_composite_polygon(polygons: List[Polygon]):
+    """Create composite polygons out of a list of polygons.
+
+    :param polygons: Polygons. Must have at least one item.
+        All other items are considered to be holes.
+
+    :return: Composite polygon.
+    """
+    # Get the "bounding" polygon
+    bounding_poly = polygons[0]
+    # Get holes / obstacles
+    if len(polygons) > 1:
+        # Generate union of holes
+        holes = polygons[1:]
+        holes = shapely.ops.unary_union(holes)
+        bounding_poly = bounding_poly.difference(holes)
+    return bounding_poly
 
 
 def metered_points_to_geojson(

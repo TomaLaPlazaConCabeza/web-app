@@ -49,11 +49,13 @@ import flask
 
 from .algorithm import (
     calculate,
-    convert_wgs84_to_meter_system,
     correct_line_intersection,
+    create_composite_polygon,
     metered_points_to_geojson,
-    polygon_from_geosjon_feature,
+    multi_convert_to_meter_system,
+    polygons_from_geojson_features,
 )
+from .exceptions import CoordSystemInconsistency, NotAPolygon, OutsideSupportedArea
 
 blueprint = flask.Blueprint("api", __name__)
 
@@ -100,25 +102,33 @@ def calculate_endpoint():
             if polygon.get("properties", {}).get("hole", False)
         ]
 
-        print(hole_polygons)
-
         # FIXME: only taking first one for now
         try:
-            main_polygon = polygon_from_geosjon_feature(main_polygons[0])
-        except ValueError:
+            shapely_polygons = polygons_from_geojson_features(
+                main_polygons[0], hole_polygons
+            )
+        except NotAPolygon:
             flask.abort(400, "Polygon contains too little items to compute.")
 
         polygon_id: int = main_polygons[0].get("properties", {}).get("id", 0)
 
         try:
-            coord_system, metered_polygon = convert_wgs84_to_meter_system(main_polygon)
-        except ValueError:
+            coord_system, metered_polygons = multi_convert_to_meter_system(
+                shapely_polygons
+            )
+        except OutsideSupportedArea:
             flask.abort(400, "Could not convert to a meter-based coordinate system.")
+        except CoordSystemInconsistency:
+            flask.abort(400, "Obstacles were too far from the main area.")
+
+        cleaned_polygons = [
+            correct_line_intersection(metered_polygon.exterior.coords)
+            for metered_polygon in metered_polygons
+        ]
+        composite_polygon = create_composite_polygon(cleaned_polygons)
 
         # fix for weird self-intersections
-        n_humans, raw_points = calculate(
-            correct_line_intersection(metered_polygon.exterior.coords)
-        )
+        n_humans, raw_points = calculate(composite_polygon)
         points = metered_points_to_geojson(raw_points, coord_system, polygon_id)
 
     return flask.jsonify(
