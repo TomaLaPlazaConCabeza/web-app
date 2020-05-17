@@ -92,6 +92,7 @@ class Map extends Component {
 
     this.historyStep = 0;
     this.history = [ cloneDeep(this.state) ];
+    this.circles = [];
   }
 
   componentDidMount() {
@@ -139,32 +140,46 @@ class Map extends Component {
 
     if(ps.people !== ts.people) {
       this.map.data.forEach((feature) => feature && this.map.data && this.map.data.remove(feature));
-
+      while(this.circles.length) this.circles.pop().setMap(null);
       if(ts.people) {
         this.map.data.addGeoJson(ts.people);
 
-        const colors = [ '#d2bda6', '#b99d7e', '#88705c', '#654732' ];
-
         this.map.data.setStyle(( feature ) => {
-          const iconColor = colors[Math.floor(Math.random() * colors.length)];
+          const geo = feature && feature.getGeometry && feature.getGeometry();
+          if(geo && geo.getType() === 'Point') {
+            geo.forEachLatLng((point) => {
+              this.circles.push(new google.maps.Circle({
+                strokeColor: '#000',
+                strokeOpacity: 0.5,
+                strokeWeight: 1,
+                fillColor: '#000',
+                fillOpacity: 0.1,
+                map: this.map,
+                center: point,
+                zIndex: 1,
+                radius: this.state.personRadius / 2,
+              }));
+            });
+
+
+            return {
+              visible: true,
+              zIndex: 2,
+              icon: {
+                url: Math.random() > .5 ? `${process.env.PUBLIC_URL}/img/male.svg` : `${process.env.PUBLIC_URL}/img/female.svg`,
+                anchor: new maps.Point(4, 15),
+              },
+            };
+          }
+
+
           return {
             strokeColor: '#e3d29c',
             strokeOpacity: 0.8,
             strokeWeight: 2,
             fillColor: '#e3d29c',
             fillOpacity: 0.2,
-            icon: {
-              path: Math.random() > .5
-                ? 'M128 0c35.346 0 64 28.654 64 64s-28.654 64-64 64c-35.346 0-64-28.654-64-64S92.654 0 128 0m119.283 354.179l-48-192A24 24 0 0 0 176 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H80a24 24 0 0 0-23.283 18.179l-48 192C4.935 369.305 16.383 384 32 384h56v104c0 13.255 10.745 24 24 24h32c13.255 0 24-10.745 24-24V384h56c15.591 0 27.071-14.671 23.283-29.821z'
-                : 'M96 0c35.346 0 64 28.654 64 64s-28.654 64-64 64-64-28.654-64-64S60.654 0 96 0m48 144h-11.36c-22.711 10.443-49.59 10.894-73.28 0H48c-26.51 0-48 21.49-48 48v136c0 13.255 10.745 24 24 24h16v136c0 13.255 10.745 24 24 24h64c13.255 0 24-10.745 24-24V352h16c13.255 0 24-10.745 24-24V192c0-26.51-21.49-48-48-48z',
-              scale: 15 / 512 * ( .9 + (Math.random() * .2)),
-              fillColor: iconColor,
-              strokeColor: iconColor,
-              fillOpacity: 1,
-              strokeOpacity: 1,
-              url: Math.random() > .5 ? `${process.env.PUBLIC_URL}/img/male.svg` : `${process.env.PUBLIC_URL}/img/female.svg`,
-              anchor: new maps.Point(128, 512),
-            },
+
           };
         });
 
@@ -473,6 +488,8 @@ class Map extends Component {
 
   handleClear = () => {
     this.historyPush = true;
+
+    this.infoWindow.close();
 
     this.setState({
       people: null,
