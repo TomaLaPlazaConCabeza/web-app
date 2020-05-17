@@ -1,16 +1,20 @@
 import dataclasses
-import random
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pyproj
 import shapely.ops
+import shapely.speedups
 from descartes import PolygonPatch
 from shapely.coords import CoordinateSequence
 from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry import mapping as geojson_mapping
 
 from .exceptions import CoordSystemInconsistency, NotAPolygon, OutsideSupportedArea
+
+if shapely.speedups.available:
+    shapely.speedups.enable()
+
 
 BLUE = "#6699cc"
 GRAY = "#999999"
@@ -253,20 +257,40 @@ def correct_line_intersection(coords: CoordinateSequence) -> Polygon:
     return polygon
 
 
-def generate_random(polygon: Polygon) -> Point:
-    """Generate a random point inside a polygon."""
-    # Get cartesian boundaries of polygon
-    minx, miny, maxx, maxy = polygon.bounds
-    # Create a random point inside a square defined by the cartesian boundaries
-    pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
-    # Check for point being inside polygon. If not, generate another random point
-    while not polygon.contains(pnt):
-        pnt = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
-    return pnt
+def random_disk_insertion(
+    n_iter: int, pts: np.ndarray, filtered: np.ndarray, r: float
+) -> Tuple[int, np.ndarray]:
+    """Random disk insertion.
+
+    May at one point be optimized with numba, but couldn't get it to work for now.
+
+    :param n_iter:
+    :param pts:
+    :param filtered:
+    :param r:
+    :return:
+    """
+    accept = 1
+    for i in range(min(n_iter, filtered.shape[0])):
+        #  Generate random point inside ob
+        pts_temp = filtered[i, :]
+        # Calculate cartesian difference
+        #  between pts_temp and all existing points in pts array
+        pts_diff = pts[:accept] - pts_temp
+        # Perform overlap boolean check with all existing points in pts array
+        euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
+        # euclid_bool = random_disk_insertion(pts_diff, r)
+        # Check that pts_temp doesn't overlap with any other
+        if np.all(euclid_bool):
+            # If all checks are positive, add point
+            pts[accept, :] = pts_temp
+            accept += 1
+
+    return accept, pts
 
 
 def populate_square(
-    ob: Polygon, iters: int = 1000, r: float = 1.0, debug: bool = False
+    polygon: Polygon, iters: int = 1000, r: float = 1.0, fudge_factor: int = 2,
 ) -> np.ndarray:
     """Function to populate a polygon "ob" with disks of radius "r".
     It performs "iters" attemps of disk insertion.
@@ -275,29 +299,21 @@ def populate_square(
     :returns: numpy nx2-array of floats.
     """
     # Define array of points
-    pts = np.zeros(shape=(iters, 2))
-    # Initialize first point -- always accepted as it's the first!
-    pts[0, :] = np.asarray(generate_random(ob))
-    accept = 1
-    # Do n=iters disk insert attempt
-    # TODO: numba, and pre-compute generate_random
-    for i in range(iters):
-        #  Generate random point inside ob
-        pts_temp = np.asarray(generate_random(ob))
-        # Calculate cartesian difference
-        #  between pts_temp and all existing points in pts array
-        pts_diff = pts[:accept] - pts_temp
-        # Perform overlap boolean check with all existing points in pts array
-        euclid_bool = (pts_diff * pts_diff).sum(1) > 4 * r * r
-        # Check that pts_temp doesn't overlap with any other
-        if np.all(euclid_bool):
-            # If all checks are positive, add point
-            pts[accept, :] = pts_temp
-            accept += 1
-        # Print progress
-        if debug and (i % int(iters / 10)) == 0:
-            print(f"Attempt: {i+1} Accepted: {accept-1}")
+    minx, miny, maxx, maxy = polygon.bounds
+    n_random = iters * fudge_factor
+    random_arr_x = np.random.uniform(minx, maxx, n_random)
+    random_arr_y = np.random.uniform(miny, maxy, n_random)
+    random_arr = np.stack([random_arr_x, random_arr_y], axis=1)
 
+    # TOOD: somehow make this listy thingy more vectorized.
+    def mask_func(x):
+        return polygon.contains(Point(x))
+
+    mask = np.apply_along_axis(mask_func, axis=1, arr=random_arr)
+
+    filtered = random_arr[mask, :]
+    pts = np.zeros(shape=filtered.shape)
+    accept, pts = random_disk_insertion(iters, pts, filtered, r)
     return pts[:accept, :]
 
 
